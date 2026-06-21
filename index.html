@@ -1,0 +1,2516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polaco ↔ Español — Vocabulary Matcher</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f3f4f6;
+      min-height: 100vh;
+      color: #1a1a1a;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    header {
+      background: #DC143C;
+      color: white;
+      padding: 0.85rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.28);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    .badges { display: flex; gap: 0.4rem; margin-left: auto; align-items: center; flex-wrap: wrap; }
+    .badge {
+      background: rgba(255,255,255,0.2);
+      border-radius: 20px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Controls ─────────────────────────────────────────────── */
+    .controls {
+      background: white;
+      border-bottom: 1px solid #e2e2e2;
+      padding: 0.65rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .ctrl-group label {
+      display: block;
+      font-size: 0.63rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #999;
+      margin-bottom: 3px;
+    }
+    .mode-toggle { display: flex; background: #f0f0f0; border-radius: 22px; padding: 3px; }
+    .mode-btn {
+      padding: 0.28rem 0.9rem;
+      border: none; background: transparent; border-radius: 19px;
+      cursor: pointer; font-size: 0.79rem; font-weight: 600; color: #777;
+      transition: all 0.2s;
+    }
+    .mode-btn.active { background: #DC143C; color: white; }
+    .mode-btn:not(.active):hover { color: #333; }
+
+    .stats { display: flex; gap: 1.2rem; margin-left: auto; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.4rem; font-weight: 800; color: #DC143C; line-height: 1; }
+    .stat-value.miss { color: #d97706; }
+    .stat-value.done { color: #16a34a; }
+    .stat-label { font-size: 0.6rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 2px; }
+
+    /* ── Progress ─────────────────────────────────────────────── */
+    .progress-wrap { background: #e4e4e4; height: 5px; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #DC143C, #ff6b8a);
+      transition: width 0.4s ease;
+    }
+
+    /* ── Game area ────────────────────────────────────────────── */
+    .game-area { max-width: 870px; margin: 1.6rem auto; padding: 0 1rem; }
+    .round-label {
+      text-align: center; font-size: 0.8rem; color: #999;
+      font-weight: 500; margin-bottom: 1rem; letter-spacing: 0.2px;
+    }
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .col-header {
+      text-align: center; font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1.1px; color: #bbb;
+      padding-bottom: 0.5rem; border-bottom: 2px solid #e4e4e4; margin-bottom: 0.5rem;
+    }
+    .word-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+    /* ── Word cards ───────────────────────────────────────────── */
+    .word-card {
+      padding: 0.6rem 0.85rem;
+      background: white;
+      border: 2px solid #e2e2e2;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-align: center;
+      user-select: none;
+      transition: border-color .15s, transform .15s, box-shadow .15s, background .15s, color .15s, opacity .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    .word-card:hover:not(.matched):not(.missed):not(.revealing) {
+      border-color: #DC143C;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(220,20,60,0.15);
+    }
+    .word-card.selected {
+      border-color: #DC143C; background: #DC143C; color: white;
+      box-shadow: 0 4px 14px rgba(220,20,60,0.35); transform: translateY(-1px);
+    }
+
+    /* Correct match */
+    .word-card.matched {
+      border-color: #16a34a; background: #f0fdf4; color: #16a34a;
+      opacity: 0.52; pointer-events: none;
+    }
+    .word-card.matched::after { content: ' ✓'; font-weight: 800; }
+
+    /* Wrong flash */
+    .word-card.wrong-flash { animation: shake .42s ease; }
+    .word-card.wrong-flash { border-color: #ef4444 !important; background: #fef2f2 !important; color: #ef4444 !important; }
+
+    /* Revealing (correct pair highlighted after a mistake) */
+    .word-card.revealing {
+      border-color: #f59e0b !important;
+      background: #fffbeb !important;
+      color: #92400e !important;
+      pointer-events: none;
+      animation: revealPulse .35s ease;
+    }
+
+    /* Missed (locked after reveal) */
+    .word-card.missed {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #d97706;
+      opacity: 0.48;
+      pointer-events: none;
+      cursor: default;
+    }
+    .word-card.missed::after { content: ' ✗'; font-weight: 800; color: #f59e0b; }
+
+    /* Grammar badge (case / tense / "conj") — text comes from data-tag */
+    .word-card.conj::before {
+      content: attr(data-tag);
+      position: absolute;
+      top: 3px; right: 5px;
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: #0891b2;
+      letter-spacing: 0.3px;
+      opacity: 0.9;
+    }
+
+    /* Retry badge (word coming back from mistake) */
+    .word-card.retry-word::after {
+      content: '🔄';
+      position: absolute;
+      top: 3px; left: 5px;
+      font-size: 0.6rem;
+      opacity: 0.7;
+    }
+    .word-card.retry-word.missed::after { content: ' ✗'; font-weight: 800; color: #f59e0b; }
+    .word-card.retry-word.matched::after { content: ' ✓'; font-weight: 800; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      18%  { transform: translateX(-7px); }
+      36%  { transform: translateX(7px); }
+      54%  { transform: translateX(-4px); }
+      72%  { transform: translateX(4px); }
+    }
+    @keyframes revealPulse {
+      from { transform: scale(.97); opacity: .6; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .hint { text-align: center; font-size: 0.74rem; color: #ccc; margin-top: 1rem; }
+
+    /* ── Legend ───────────────────────────────────────────────── */
+    .legend {
+      display: flex; justify-content: center; gap: 1.2rem;
+      font-size: 0.72rem; color: #aaa; margin-top: 0.6rem; flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .legend-dot.green  { background: #16a34a; }
+    .legend-dot.amber  { background: #f59e0b; }
+    .legend-dot.teal   { background: #0891b2; }
+    .legend-dot.blue   { background: #3b82f6; }
+
+    /* ── Overlays ─────────────────────────────────────────────── */
+    .overlay-card {
+      display: none; background: white; border-radius: 18px;
+      padding: 2.2rem 2rem; text-align: center;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.11); margin-top: 0.5rem;
+    }
+    .overlay-card.visible { display: block; animation: fadeIn .35s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .overlay-card .big-icon { font-size: 2.8rem; margin-bottom: 0.5rem; }
+    .overlay-card h2 { font-size: 1.6rem; font-weight: 800; margin-bottom: 0.3rem; }
+    .overlay-card .sub { font-size: 0.9rem; color: #666; margin-bottom: 1rem; }
+
+    .round-stats {
+      display: flex; justify-content: center; gap: 1.5rem; margin: 0.8rem 0 1.2rem;
+      flex-wrap: wrap;
+    }
+    .round-stat { text-align: center; }
+    .round-stat-num { font-size: 1.8rem; font-weight: 800; }
+    .round-stat-num.green { color: #16a34a; }
+    .round-stat-num.amber { color: #d97706; }
+    .round-stat-num.blue  { color: #3b82f6; }
+    .round-stat-label { font-size: 0.68rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .action-btn {
+      display: inline-block; padding: 0.7rem 2rem;
+      background: #DC143C; color: white; border: none;
+      border-radius: 10px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: all .2s;
+      box-shadow: 0 3px 12px rgba(220,20,60,0.3);
+    }
+    .action-btn:hover { background: #b01030; transform: translateY(-1px); }
+
+    .final-score-box {
+      display: inline-block; background: #fff5f7;
+      border: 2px solid #ffccd5; border-radius: 12px;
+      padding: 0.7rem 1.8rem; margin: 0.4rem 0 1.2rem;
+    }
+    .final-score-num { font-size: 2.2rem; font-weight: 800; color: #DC143C; }
+    .final-score-label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.7px; }
+
+    .accuracy-row {
+      display: flex; align-items: center; gap: .7rem;
+      margin: 0 auto 1.4rem; max-width: 320px;
+    }
+    .accuracy-label { font-size: 0.78rem; color: #888; white-space: nowrap; }
+    .accuracy-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 10px; height: 10px; overflow: hidden; }
+    .accuracy-bar-fill {
+      height: 100%; background: linear-gradient(90deg, #DC143C, #ff6b8a);
+      border-radius: 10px; transition: width .8s ease .2s;
+    }
+    .accuracy-pct { font-size: 0.88rem; font-weight: 700; color: #DC143C; }
+
+    /* ── Dark mode ───────────────────────────────────────────────── */
+    body.dark {
+      background: #0f1117;
+      color: #e2e4eb;
+    }
+    body.dark .controls {
+      background: #1a1d26;
+      border-bottom-color: #2e3348;
+    }
+    body.dark .ctrl-group label { color: #6b7280; }
+    body.dark .mode-toggle { background: #2e3348; }
+    body.dark .mode-btn:not(.active) { color: #9ca3af; }
+    body.dark .mode-btn:not(.active):hover { color: #e2e4eb; }
+    body.dark .stat-label { color: #6b7280; }
+    body.dark .progress-wrap { background: #2e3348; }
+    body.dark .round-label { color: #6b7280; }
+    body.dark .col-header { color: #6b7280; border-bottom-color: #2e3348; }
+    body.dark .word-card {
+      background: #1e2130;
+      border-color: #2e3348;
+      color: #e2e4eb;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    body.dark .word-card:hover:not(.matched):not(.missed):not(.revealing) {
+      border-color: #DC143C;
+      box-shadow: 0 4px 14px rgba(220,20,60,0.25);
+    }
+    body.dark .word-card.matched {
+      background: #0f291a;
+      border-color: #16a34a;
+      color: #4ade80;
+    }
+    body.dark .word-card.missed {
+      background: #2a1f08;
+      border-color: #92400e;
+      color: #fbbf24;
+    }
+    body.dark .word-card.revealing {
+      background: #2a1f08 !important;
+      border-color: #f59e0b !important;
+      color: #fbbf24 !important;
+    }
+    body.dark .word-card.wrong-flash {
+      background: #2d1111 !important;
+      border-color: #ef4444 !important;
+      color: #f87171 !important;
+    }
+    body.dark .legend { color: #6b7280; }
+    body.dark .overlay-card {
+      background: #1e2130;
+      box-shadow: 0 6px 32px rgba(0,0,0,0.5);
+    }
+    body.dark .overlay-card .sub { color: #9ca3af; }
+    body.dark .round-stat-label { color: #6b7280; }
+    body.dark .final-score-box {
+      background: #2d0f18;
+      border-color: #6b1a2a;
+    }
+    body.dark .final-score-label { color: #9ca3af; }
+    body.dark .accuracy-bar-wrap { background: #2e3348; }
+    body.dark .accuracy-label { color: #9ca3af; }
+
+    /* Dark toggle button */
+    .dark-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      padding: 0.15rem 0.3rem;
+      border-radius: 8px;
+      transition: transform 0.2s, opacity 0.2s;
+      opacity: 0.85;
+    }
+    .dark-btn:hover { opacity: 1; transform: scale(1.15); }
+
+    /* ── v2 · header tag ──────────────────────────────────────────── */
+    .v2-tag {
+      font-size: 0.62rem; font-weight: 700; vertical-align: middle;
+      background: rgba(255,255,255,0.22); padding: 0.12rem 0.5rem;
+      border-radius: 20px; margin-left: 0.4rem; letter-spacing: 0.4px;
+    }
+
+    /* ── v2 · MENU screen ─────────────────────────────────────────── */
+    .menu-inner { max-width: 860px; margin: 1.8rem auto; padding: 0 1.1rem; }
+    .menu-title { font-size: 1.55rem; font-weight: 800; color: #DC143C; margin-bottom: 0.3rem; }
+    .menu-lead  { font-size: 0.92rem; color: #666; line-height: 1.5; margin-bottom: 1.3rem; max-width: 640px; }
+    .menu-step  {
+      display: flex; align-items: center; gap: 0.55rem;
+      font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+      color: #999; margin: 1.4rem 0 0.7rem;
+    }
+    .menu-step span {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 1.25rem; height: 1.25rem; border-radius: 50%;
+      background: #DC143C; color: white; font-size: 0.72rem;
+    }
+    .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 0.7rem; }
+    .pick-card {
+      text-align: left; background: white; border: 2px solid #e2e2e2; border-radius: 13px;
+      padding: 0.85rem 0.95rem; cursor: pointer; font-family: inherit;
+      display: grid; grid-template-columns: auto 1fr; column-gap: 0.6rem; row-gap: 0.15rem;
+      transition: border-color .15s, transform .15s, box-shadow .15s, background .15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .pick-card:hover { border-color: #f4a3b4; transform: translateY(-2px); box-shadow: 0 5px 16px rgba(220,20,60,0.13); }
+    .pick-card.sel { border-color: #DC143C; background: #fff5f7; box-shadow: 0 5px 18px rgba(220,20,60,0.2); }
+    .pick-ic { grid-row: 1 / span 2; font-size: 1.6rem; align-self: center; }
+    .pick-tt { font-size: 0.92rem; font-weight: 700; color: #1a1a1a; }
+    .pick-ds { font-size: 0.74rem; color: #888; line-height: 1.35; }
+    .pick-card.sel .pick-tt { color: #DC143C; }
+
+    .menu-dir { display: inline-flex; margin-top: 0.2rem; }
+    .start-btn { display: block; margin: 1.8rem 0 0.5rem; font-size: 1.05rem; padding: 0.8rem 2.4rem; }
+
+    /* ── v2 · ghost buttons & game tags ───────────────────────────── */
+    .ghost-btn {
+      background: transparent; border: 1.5px solid #d8d8d8; color: #777;
+      border-radius: 9px; padding: 0.32rem 0.85rem; cursor: pointer;
+      font-family: inherit; font-size: 0.8rem; font-weight: 600; transition: all .15s;
+    }
+    .ghost-btn:hover { border-color: #DC143C; color: #DC143C; }
+    .ghost-btn.big { padding: 0.6rem 1.4rem; font-size: 0.9rem; }
+    .game-tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .game-tags .badge { background: #fde7ec; color: #b01030; }
+    .end-btns { display: flex; gap: 0.7rem; justify-content: center; align-items: center; flex-wrap: wrap; }
+
+    /* ── v2 · sequential modes (choice / typing) ──────────────────── */
+    .seq-area { max-width: 560px; margin: 0.5rem auto 0; text-align: center; }
+    .seq-counter { font-size: 0.74rem; font-weight: 700; color: #bbb; letter-spacing: 0.5px; }
+    .seq-tag {
+      display: inline-block; margin-top: 0.5rem;
+      font-size: 0.64rem; font-weight: 700; color: #0891b2;
+      background: #e0f7fb; border-radius: 20px; padding: 0.15rem 0.7rem; letter-spacing: 0.4px;
+    }
+    .seq-prompt {
+      font-size: 1.75rem; font-weight: 800; color: #1a1a1a;
+      margin: 0.7rem 0 0.3rem; cursor: pointer; line-height: 1.2;
+    }
+    .seq-prompt:hover { color: #DC143C; }
+    .seq-hint { font-size: 0.78rem; color: #aaa; margin-bottom: 1.2rem; }
+
+    .mc-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .mc-opt {
+      padding: 0.9rem 0.8rem; background: white; border: 2px solid #e2e2e2; border-radius: 11px;
+      font-family: inherit; font-size: 0.98rem; font-weight: 600; color: #222; cursor: pointer;
+      transition: border-color .15s, transform .12s, background .15s, color .15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .mc-opt:hover:not(:disabled) { border-color: #DC143C; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(220,20,60,0.14); }
+    .mc-opt:disabled { cursor: default; }
+    .mc-opt.ok  { border-color: #16a34a; background: #f0fdf4; color: #16a34a; }
+    .mc-opt.bad { border-color: #ef4444; background: #fef2f2; color: #ef4444; animation: shake .42s ease; }
+
+    .ty-input {
+      width: 100%; padding: 0.8rem 1rem; font-family: inherit; font-size: 1.1rem; text-align: center;
+      border: 2px solid #e2e2e2; border-radius: 11px; outline: none; color: #1a1a1a; background: white;
+      transition: border-color .15s;
+    }
+    .ty-input:focus { border-color: #DC143C; }
+    .ty-input.ok  { border-color: #16a34a; background: #f0fdf4; color: #16a34a; }
+    .ty-input.bad { border-color: #ef4444; background: #fef2f2; color: #ef4444; }
+    .ty-fb { min-height: 1.4rem; margin: 0.7rem 0; font-size: 0.95rem; font-weight: 700; }
+    .ty-fb.ok  { color: #16a34a; }
+    .ty-fb.bad { color: #d97706; }
+    .ty-fb b   { color: #DC143C; }
+    .ty-btn { font-size: 0.92rem; padding: 0.6rem 1.8rem; }
+
+    /* ── v2 · dark mode for new components ────────────────────────── */
+    body.dark .menu-lead { color: #9ca3af; }
+    body.dark .menu-step { color: #6b7280; }
+    body.dark .pick-card { background: #1e2130; border-color: #2e3348; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    body.dark .pick-card:hover { border-color: #6b1a2a; }
+    body.dark .pick-card.sel { background: #2d0f18; border-color: #DC143C; }
+    body.dark .pick-tt { color: #e2e4eb; }
+    body.dark .pick-ds { color: #9ca3af; }
+    body.dark .ghost-btn { border-color: #2e3348; color: #9ca3af; }
+    body.dark .ghost-btn:hover { border-color: #DC143C; color: #f87171; }
+    body.dark .game-tags .badge { background: #2d0f18; color: #f4a3b4; }
+    body.dark .seq-counter { color: #6b7280; }
+    body.dark .seq-prompt { color: #e2e4eb; }
+    body.dark .seq-hint { color: #6b7280; }
+    body.dark .seq-tag { background: #0c2b30; }
+    body.dark .mc-opt { background: #1e2130; border-color: #2e3348; color: #e2e4eb; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    body.dark .mc-opt.ok  { background: #0f291a; border-color: #16a34a; color: #4ade80; }
+    body.dark .mc-opt.bad { background: #2d1111; border-color: #ef4444; color: #f87171; }
+    body.dark .ty-input { background: #1e2130; border-color: #2e3348; color: #e2e4eb; }
+    body.dark .ty-input.ok  { background: #0f291a; border-color: #16a34a; color: #4ade80; }
+    body.dark .ty-input.bad { background: #2d1111; border-color: #ef4444; color: #f87171; }
+
+    @media (max-width: 560px) {
+      .seq-prompt { font-size: 1.4rem; }
+      .mc-opt { font-size: 0.86rem; padding: 0.75rem 0.5rem; }
+      .pick-grid { grid-template-columns: 1fr; }
+      .menu-title { font-size: 1.25rem; }
+      header { padding: 0.7rem 1rem; }
+      header h1 { font-size: 0.9rem; }
+      .controls { padding: 0.55rem 1rem; gap: .7rem; }
+      .mode-btn { font-size: 0.7rem; padding: 0.22rem 0.6rem; }
+      .stats { gap: 0.8rem; }
+      .stat-value { font-size: 1.1rem; }
+      .game-area { margin: 0.8rem auto; }
+      .columns { gap: 0.4rem; }
+      .word-card { font-size: 0.75rem; padding: 0.48rem 0.35rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────── -->
+<header>
+  <span style="font-size:1.75rem">🇵🇱</span>
+  <h1>Polaco ↔ Español <span class="v2-tag">v2 · B1–B2</span></h1>
+  <div class="badges">
+    <span class="badge">vocab. avanzado</span>
+    <span class="badge">7 casos</span>
+    <span class="badge">tiempos &amp; modos</span>
+    <span class="badge">3 modos de juego</span>
+  </div>
+  <button class="dark-btn" id="sound-btn" onclick="toggleSound()" title="Activar/silenciar pronunciación">🔊</button>
+  <button class="dark-btn" id="dark-btn" onclick="toggleDark()" title="Alternar modo oscuro">🌙</button>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════════
+     MENU SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<div id="menu" class="screen">
+  <div class="menu-inner">
+    <h2 class="menu-title">Práctica de polaco · nivel B1–B2</h2>
+    <p class="menu-lead">Elige <b>qué</b> practicar, <b>cómo</b> y en qué <b>dirección</b>. Tu progreso se sigue ronda a ronda y lo que fallas vuelve para repasarlo.</p>
+
+    <div class="menu-step"><span>1</span> ¿Qué quieres practicar?</div>
+    <div id="deck-grid" class="pick-grid"></div>
+
+    <div class="menu-step"><span>2</span> ¿Cómo?</div>
+    <div id="mode-grid" class="pick-grid"></div>
+
+    <div class="menu-step"><span>3</span> Dirección</div>
+    <div class="mode-toggle menu-dir">
+      <button class="mode-btn active" id="dir-es-pl" onclick="setDir('es-pl')">Español → Polaco</button>
+      <button class="mode-btn"        id="dir-pl-es" onclick="setDir('pl-es')">Polaco → Español</button>
+    </div>
+
+    <button class="action-btn start-btn" onclick="startGame()">Empezar →</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     GAME SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<div id="game" class="screen" style="display:none">
+
+  <!-- ── Controls ──────────────────────────────────────────────── -->
+  <div class="controls">
+    <button class="ghost-btn" onclick="showMenu()">← Menú</button>
+    <div class="game-tags">
+      <span class="badge" id="game-deck-name">—</span>
+      <span class="badge" id="game-mode-name">—</span>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value" id="stat-score">0</div>
+        <div class="stat-label">Puntos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value done" id="stat-done">0/0</div>
+        <div class="stat-label">✓ Dominadas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value miss" id="stat-missed">0</div>
+        <div class="stat-label">✗ Fallos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="stat-round">1</div>
+        <div class="stat-label">Ronda</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <!-- ── Game area ───────────────────────────────────────────────── -->
+  <div class="game-area">
+    <div class="round-label" id="round-label">Ronda 1</div>
+
+    <!-- MODE 1 · matching -->
+    <div id="columns" class="columns">
+      <div>
+        <div class="col-header" id="left-header">Español</div>
+        <div class="word-list" id="left-col"></div>
+      </div>
+      <div>
+        <div class="col-header" id="right-header">Polaco</div>
+        <div class="word-list" id="right-col"></div>
+      </div>
+    </div>
+
+    <!-- MODE 2 · multiple choice -->
+    <div id="mc-area" class="seq-area" style="display:none"></div>
+
+    <!-- MODE 3 · typing -->
+    <div id="type-area" class="seq-area" style="display:none"></div>
+
+    <div class="legend" id="match-legend">
+      <div class="legend-item"><div class="legend-dot green"></div> Acierto +10</div>
+      <div class="legend-item"><div class="legend-dot amber"></div> Fallo → vuelve en ~2 rondas</div>
+      <div class="legend-item"><div class="legend-dot teal"></div> Etiqueta gramatical</div>
+      <div class="legend-item">🔊 toca una palabra = oírla</div>
+    </div>
+
+    <!-- Round complete -->
+  <div class="overlay-card" id="round-complete">
+    <div class="big-icon" id="round-icon">✅</div>
+    <h2 id="round-title" style="color:#16a34a">¡Ronda completada!</h2>
+    <div class="round-stats">
+      <div class="round-stat">
+        <div class="round-stat-num green" id="rc-matched">0</div>
+        <div class="round-stat-label">Aciertos</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num amber" id="rc-missed">0</div>
+        <div class="round-stat-label">Fallos</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num blue" id="rc-retry">0</div>
+        <div class="round-stat-label">🔄 En cola</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num green" id="rc-done">0/100</div>
+        <div class="round-stat-label">Dominadas</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num" style="color:#DC143C" id="rc-score">0</div>
+        <div class="round-stat-label">Puntos</div>
+      </div>
+    </div>
+    <button class="action-btn" onclick="nextRound()">Siguiente ronda →</button>
+  </div>
+
+  <!-- Game complete -->
+  <div class="overlay-card" id="game-complete">
+    <div class="big-icon">🎉</div>
+    <h2 style="color:#DC143C">¡Świetnie! ¡Partida terminada!</h2>
+    <p class="sub" id="final-sub">Has dominado las 100 palabras. ¡Felicidades!</p>
+    <div class="final-score-box">
+      <div class="final-score-num" id="final-score-num">0</div>
+      <div class="final-score-label">puntos finales</div>
+    </div>
+    <div class="round-stats" style="margin-bottom:1rem">
+      <div class="round-stat">
+        <div class="round-stat-num green" id="final-matched">0</div>
+        <div class="round-stat-label">Aciertos</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num amber" id="final-missed">0</div>
+        <div class="round-stat-label">Fallos</div>
+      </div>
+      <div class="round-stat">
+        <div class="round-stat-num blue" id="final-rounds">0</div>
+        <div class="round-stat-label">Rondas</div>
+      </div>
+    </div>
+    <div class="accuracy-row">
+      <span class="accuracy-label">Precisión</span>
+      <div class="accuracy-bar-wrap">
+        <div class="accuracy-bar-fill" id="accuracy-bar" style="width:0%"></div>
+      </div>
+      <span class="accuracy-pct" id="accuracy-pct">0%</span>
+    </div>
+    <div class="end-btns">
+      <button class="action-btn" onclick="restartGame()">Otra partida</button>
+      <button class="ghost-btn big" onclick="showMenu()">← Cambiar de práctica</button>
+    </div>
+  </div>
+  </div><!-- /.game-area -->
+</div><!-- /#game -->
+
+<!-- ════════════════════════════════════════════════════════════════
+     SCRIPT
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+// ──────────────────────────────────────────────────────────────────
+//  WORD LIST  — ~700 Polish words with Spanish translations
+//  Sources: Wiktionary / OpenSubtitles corpus / 101languages.net /
+//           Strommeninc frequency list / MostUsedWords dictionary
+//  conj:true  marks conjugated verb forms
+// ──────────────────────────────────────────────────────────────────
+const WORDS = [
+
+  // ══ 1. CONECTORES BÁSICOS ═════════════════════════════════════
+  { es:"sí",                              pl:"tak" },
+  { es:"no",                              pl:"nie" },
+  { es:"y",                               pl:"i" },
+  { es:"pero",                            pl:"ale" },
+  { es:"que (conj.)",                     pl:"że" },
+  { es:"porque (informal)",               pl:"bo" },
+  { es:"porque (formal)",                 pl:"ponieważ" },
+  { es:"entonces / así que",              pl:"więc" },
+  { es:"o (alternativa)",                 pl:"lub" },
+  { es:"sin embargo",                     pl:"jednak" },
+  { es:"aunque",                          pl:"chociaż" },
+  { es:"si (condición)",                  pl:"jeśli" },
+  { es:"cuando (conj.)",                  pl:"gdy" },
+  { es:"antes de que",                    pl:"zanim" },
+  { es:"por lo tanto",                    pl:"zatem" },
+  { es:"o bien / ya sea",                 pl:"albo" },
+  { es:"es decir / o sea",                pl:"czyli" },
+  { es:"ya que / puesto que",             pl:"skoro" },
+  { es:"en cambio / mientras que",        pl:"natomiast" },
+  { es:"ni",                              pl:"ani" },
+  { es:"también / además",               pl:"też" },
+  { es:"incluso / hasta",                 pl:"nawet" },
+  { es:"para que / con el fin de",        pl:"żeby" },
+  { es:"por eso / por esa razón",         pl:"dlatego" },
+  { es:"a pesar de",                      pl:"mimo" },
+
+  // ══ 2. PALABRAS INTERROGATIVAS ════════════════════════════════
+  { es:"cómo",                            pl:"jak" },
+  { es:"dónde",                           pl:"gdzie" },
+  { es:"cuándo",                          pl:"kiedy" },
+  { es:"por qué",                         pl:"dlaczego" },
+  { es:"quién",                           pl:"kto" },
+  { es:"qué",                             pl:"co" },
+  { es:"cuál / que (relat.)",             pl:"który" },
+  { es:"cuánto / cuántos",               pl:"ile" },
+  { es:"de dónde",                        pl:"skąd" },
+  { es:"adónde",                          pl:"dokąd" },
+
+  // ══ 3. PRONOMBRES ═════════════════════════════════════════════
+  { es:"yo",                              pl:"ja" },
+  { es:"tú",                              pl:"ty" },
+  { es:"él",                              pl:"on" },
+  { es:"ella",                            pl:"ona" },
+  { es:"nosotros",                        pl:"my" },
+  { es:"vosotros / ustedes",              pl:"wy" },
+  { es:"ellos",                           pl:"oni" },
+  { es:"esto / eso",                      pl:"to" },
+  { es:"este (masc.)",                    pl:"ten" },
+  { es:"esta (fem.)",                     pl:"ta" },
+  { es:"alguien",                         pl:"ktoś" },
+  { es:"nadie",                           pl:"nikt" },
+  { es:"algo",                            pl:"coś" },
+  { es:"nada",                            pl:"nic" },
+  { es:"todo (pron.)",                    pl:"wszystko" },
+  { es:"se (reflexivo)",                  pl:"się" },
+  { es:"mi / mío",                        pl:"mój" },
+  { es:"nuestro",                         pl:"nasz" },
+  { es:"su (de ellos)",                   pl:"ich" },
+  { es:"señor / usted (masc.)",           pl:"pan" },
+  { es:"señora / usted (fem.)",           pl:"pani" },
+
+  // ══ 4. VERBOS — INFINITIVOS (SET 1) ══════════════════════════
+  { es:"ser / estar",                     pl:"być" },
+  { es:"tener (inf.)",                    pl:"mieć" },
+  { es:"querer (inf.)",                   pl:"chcieć" },
+  { es:"saber (inf.)",                    pl:"wiedzieć" },
+  { es:"poder (inf.)",                    pl:"móc" },
+  { es:"deber / tener que",               pl:"musieć" },
+  { es:"hablar (inf.)",                   pl:"mówić" },
+  { es:"ir a pie (inf.)",                 pl:"iść" },
+  { es:"hacer (inf.)",                    pl:"robić" },
+  { es:"dar (perf., inf.)",               pl:"dać" },
+  { es:"tomar / coger",                   pl:"wziąć" },
+  { es:"pensar (inf.)",                   pl:"myśleć" },
+  { es:"sentir (inf.)",                   pl:"czuć" },
+  { es:"ver en curso (inf.)",             pl:"widzieć" },
+  { es:"ver de repente (perf.)",          pl:"zobaczyć" },
+  { es:"oír (inf.)",                      pl:"słyszeć" },
+  { es:"conocer (inf.)",                  pl:"znać" },
+  { es:"entender / comprender",           pl:"rozumieć" },
+  { es:"decir / contar",                  pl:"powiedzieć" },
+  { es:"preguntar (inf.)",                pl:"pytać" },
+
+  // ══ 5. VERBOS — INFINITIVOS (SET 2) ══════════════════════════
+  { es:"responder / contestar",           pl:"odpowiadać" },
+  { es:"venir / llegar (inf.)",           pl:"przyjść" },
+  { es:"salir (inf.)",                    pl:"wyjść" },
+  { es:"entrar (inf.)",                   pl:"wejść" },
+  { es:"volver / regresar (inf.)",        pl:"wracać" },
+  { es:"quedarse (inf.)",                 pl:"zostać" },
+  { es:"buscar (inf.)",                   pl:"szukać" },
+  { es:"encontrar / hallar",              pl:"znaleźć" },
+  { es:"empezar / comenzar",              pl:"zacząć" },
+  { es:"terminar / acabar",               pl:"skończyć" },
+  { es:"abrir (inf.)",                    pl:"otworzyć" },
+  { es:"cerrar (inf.)",                   pl:"zamknąć" },
+  { es:"recordar (inf.)",                 pl:"pamiętać" },
+  { es:"olvidar (inf.)",                  pl:"zapomnieć" },
+  { es:"aprender / estudiar (inf.)",      pl:"uczyć się" },
+  { es:"gustar / agradar",               pl:"lubić" },
+  { es:"amar (inf.)",                     pl:"kochać" },
+  { es:"odiar (inf.)",                    pl:"nienawidzić" },
+  { es:"tener miedo / temer",             pl:"bać się" },
+  { es:"alegrarse / disfrutar",           pl:"cieszyć się" },
+
+  // ══ 6. VERBOS — INFINITIVOS (SET 3) ══════════════════════════
+  { es:"preocuparse (inf.)",              pl:"martwić się" },
+  { es:"vivir (inf.)",                    pl:"żyć" },
+  { es:"morir (inf.)",                    pl:"umrzeć" },
+  { es:"nacer (inf.)",                    pl:"urodzić się" },
+  { es:"ayudar (inf.)",                   pl:"pomóc" },
+  { es:"necesitar (inf.)",                pl:"potrzebować" },
+  { es:"trabajar (inf.)",                 pl:"pracować" },
+  { es:"residir / vivir en",              pl:"mieszkać" },
+  { es:"comer (inf.)",                    pl:"jeść" },
+  { es:"beber (inf.)",                    pl:"pić" },
+  { es:"dormir (inf.)",                   pl:"spać" },
+  { es:"comprar (perf., inf.)",           pl:"kupić" },
+  { es:"vender (inf.)",                   pl:"sprzedać" },
+  { es:"leer (inf.)",                     pl:"czytać" },
+  { es:"escribir (inf.)",                 pl:"pisać" },
+  { es:"conversar / charlar",             pl:"rozmawiać" },
+  { es:"jugar / tocar instrumento",       pl:"grać" },
+  { es:"escuchar (inf.)",                 pl:"słuchać" },
+  { es:"mirar (inf.)",                    pl:"patrzeć" },
+  { es:"caminar / andar",                 pl:"chodzić" },
+
+  // ══ 7. VERBOS — INFINITIVOS (SET 4) ══════════════════════════
+  { es:"correr (inf.)",                   pl:"biegać" },
+  { es:"cantar (inf.)",                   pl:"śpiewać" },
+  { es:"bailar (inf.)",                   pl:"tańczyć" },
+  { es:"cocinar (inf.)",                  pl:"gotować" },
+  { es:"reírse (inf.)",                   pl:"śmiać się" },
+  { es:"llorar (inf.)",                   pl:"płakać" },
+  { es:"gritar (inf.)",                   pl:"krzyczeć" },
+  { es:"volar (inf.)",                    pl:"latać" },
+  { es:"nadar (inf.)",                    pl:"pływać" },
+  { es:"conducir / ir en vehículo",       pl:"jeździć" },
+  { es:"traer (inf.)",                    pl:"przynieść" },
+  { es:"esperar (inf.)",                  pl:"czekać" },
+  { es:"estar sentado",                   pl:"siedzieć" },
+  { es:"estar de pie",                    pl:"stać" },
+  { es:"estar acostado",                  pl:"leżeć" },
+  { es:"creer (inf.)",                    pl:"wierzyć" },
+  { es:"parecer / verse",                 pl:"wyglądać" },
+  { es:"sonreír (inf.)",                  pl:"uśmiechać się" },
+  { es:"soñar (inf.)",                    pl:"marzyć" },
+  { es:"luchar / combatir",               pl:"walczyć" },
+
+  // ══ 8. VERBOS — INFINITIVOS (SET 5) ══════════════════════════
+  { es:"ganar (inf.)",                    pl:"wygrać" },
+  { es:"perder (competición)",            pl:"przegrać" },
+  { es:"llegar en vehículo",              pl:"przyjechać" },
+  { es:"irse / partir en vehículo",       pl:"wyjechać" },
+  { es:"encontrarse / reunirse",          pl:"spotkać" },
+  { es:"conocer (a alguien, perf.)",      pl:"poznać" },
+  { es:"elegir / escoger",               pl:"wybrać" },
+  { es:"confiar en alguien",              pl:"ufać" },
+  { es:"guardar silencio",                pl:"milczeć" },
+  { es:"traer de vuelta",                 pl:"przynieść się" },
+
+  // ══ 9. PREPOSICIONES ══════════════════════════════════════════
+  { es:"en (lugar)",                      pl:"w" },
+  { es:"sobre / en (superficie)",         pl:"na" },
+  { es:"con / de",                        pl:"z" },
+  { es:"a / hacia",                       pl:"do" },
+  { es:"de / desde",                      pl:"od" },
+  { es:"por / a través de",               pl:"przez" },
+  { es:"después de / a lo largo de",      pl:"po" },
+  { es:"detrás de / tras",                pl:"za" },
+  { es:"sobre / acerca de",               pl:"o" },
+  { es:"junto a / cerca de",              pl:"przy" },
+  { es:"delante de / antes de",           pl:"przed" },
+  { es:"encima de / sobre",               pl:"nad" },
+  { es:"debajo de / bajo",                pl:"pod" },
+  { es:"entre",                           pl:"między" },
+  { es:"sin (prep.)",                     pl:"bez" },
+  { es:"para (alguien)",                  pl:"dla" },
+  { es:"durante",                         pl:"podczas" },
+  { es:"según",                           pl:"według" },
+  { es:"alrededor de",                    pl:"wokół" },
+  { es:"en lugar de",                     pl:"zamiast" },
+  { es:"entre (varios / colectivo)",      pl:"wśród" },
+  { es:"al lado de / junto a",            pl:"obok" },
+  { es:"frente a / enfrente de",          pl:"naprzeciwko" },
+  { es:"por encima de / más de",          pl:"ponad" },
+  { es:"cerca (adv.)",                    pl:"blisko" },
+  { es:"lejos (adv.)",                    pl:"daleko" },
+
+  // ══ 10. TIEMPO ════════════════════════════════════════════════
+  { es:"tiempo",                          pl:"czas" },
+  { es:"día",                             pl:"dzień" },
+  { es:"año",                             pl:"rok" },
+  { es:"noche",                           pl:"noc" },
+  { es:"momento",                         pl:"chwila" },
+  { es:"hora",                            pl:"godzina" },
+  { es:"semana",                          pl:"tydzień" },
+  { es:"mes",                             pl:"miesiąc" },
+  { es:"mañana (adv.)",                   pl:"jutro" },
+  { es:"ayer",                            pl:"wczoraj" },
+  { es:"hoy",                             pl:"dziś" },
+  { es:"por la mañana / al amanecer",     pl:"rano" },
+
+  // ══ 11. LUGARES ═══════════════════════════════════════════════
+  { es:"lugar / sitio",                   pl:"miejsce" },
+  { es:"país",                            pl:"kraj" },
+  { es:"mundo",                           pl:"świat" },
+  { es:"ciudad",                          pl:"miasto" },
+  { es:"casa / hogar",                    pl:"dom" },
+  { es:"camino / carretera",              pl:"droga" },
+  { es:"calle",                           pl:"ulica" },
+  { es:"escuela",                         pl:"szkoła" },
+  { es:"tienda",                          pl:"sklep" },
+  { es:"parque",                          pl:"park" },
+  { es:"hospital",                        pl:"szpital" },
+  { es:"iglesia",                         pl:"kościół" },
+  { es:"restaurante",                     pl:"restauracja" },
+  { es:"cafetería",                       pl:"kawiarnia" },
+  { es:"oficina / despacho",              pl:"biuro" },
+  { es:"biblioteca",                      pl:"biblioteka" },
+  { es:"aeropuerto",                      pl:"lotnisko" },
+  { es:"estación (trenes/buses)",         pl:"dworzec" },
+  { es:"banco (institución)",             pl:"bank" },
+  { es:"hotel",                           pl:"hotel" },
+
+  // ══ 12. NATURALEZA ════════════════════════════════════════════
+  { es:"mar",                             pl:"morze" },
+  { es:"montaña",                         pl:"góra" },
+  { es:"bosque",                          pl:"las" },
+  { es:"río",                             pl:"rzeka" },
+  { es:"cielo",                           pl:"niebo" },
+  { es:"sol",                             pl:"słońce" },
+  { es:"agua",                            pl:"woda" },
+  { es:"tierra / suelo",                  pl:"ziemia" },
+  { es:"fuego",                           pl:"ogień" },
+  { es:"aire",                            pl:"powietrze" },
+  { es:"árbol",                           pl:"drzewo" },
+  { es:"flor",                            pl:"kwiat" },
+  { es:"lluvia",                          pl:"deszcz" },
+  { es:"nieve",                           pl:"śnieg" },
+  { es:"viento",                          pl:"wiatr" },
+
+  // ══ 13. PERSONAS Y RELACIONES ═════════════════════════════════
+  { es:"persona / ser humano",            pl:"człowiek" },
+  { es:"mujer",                           pl:"kobieta" },
+  { es:"hombre",                          pl:"mężczyzna" },
+  { es:"niño / niña",                     pl:"dziecko" },
+  { es:"familia",                         pl:"rodzina" },
+  { es:"amigo",                           pl:"przyjaciel" },
+  { es:"mamá",                            pl:"mama" },
+  { es:"papá",                            pl:"tata" },
+  { es:"padre",                           pl:"ojciec" },
+  { es:"madre",                           pl:"matka" },
+  { es:"hermano",                         pl:"brat" },
+  { es:"hermana",                         pl:"siostra" },
+  { es:"hijo",                            pl:"syn" },
+  { es:"hija",                            pl:"córka" },
+  { es:"chico / novio",                   pl:"chłopak" },
+  { es:"chica / novia",                   pl:"dziewczyna" },
+  { es:"vecino",                          pl:"sąsiad" },
+  { es:"compañero / colega",              pl:"kolega" },
+  { es:"profesor / maestro",              pl:"nauczyciel" },
+  { es:"médico / doctor",                 pl:"lekarz" },
+
+  // ══ 14. CUERPO HUMANO ═════════════════════════════════════════
+  { es:"ojo",                             pl:"oko" },
+  { es:"cabeza",                          pl:"głowa" },
+  { es:"mano / brazo",                    pl:"ręka" },
+  { es:"pierna / pie",                    pl:"noga" },
+  { es:"corazón",                         pl:"serce" },
+  { es:"cara / rostro",                   pl:"twarz" },
+  { es:"boca",                            pl:"usta" },
+  { es:"oreja / oído",                    pl:"ucho" },
+  { es:"nariz",                           pl:"nos" },
+  { es:"espalda",                         pl:"plecy" },
+  { es:"cuerpo",                          pl:"ciało" },
+  { es:"voz",                             pl:"głos" },
+  { es:"cabello / pelo",                  pl:"włosy" },
+  { es:"diente",                          pl:"ząb" },
+  { es:"sangre",                          pl:"krew" },
+  { es:"estómago",                        pl:"żołądek" },
+
+  // ══ 15. OBJETOS COTIDIANOS ════════════════════════════════════
+  { es:"dinero",                          pl:"pieniądze" },
+  { es:"teléfono",                        pl:"telefon" },
+  { es:"coche / auto",                    pl:"samochód" },
+  { es:"libro",                           pl:"książka" },
+  { es:"puerta",                          pl:"drzwi" },
+  { es:"ventana",                         pl:"okno" },
+  { es:"mesa",                            pl:"stół" },
+  { es:"silla",                           pl:"krzesło" },
+  { es:"llave",                           pl:"klucz" },
+  { es:"cama",                            pl:"łóżko" },
+  { es:"sofá / sillón",                   pl:"kanapa" },
+  { es:"computadora / ordenador",         pl:"komputer" },
+  { es:"bolsa / bolso",                   pl:"torba" },
+  { es:"mochila",                         pl:"plecak" },
+  { es:"billetera / cartera",             pl:"portfel" },
+  { es:"ropa",                            pl:"ubranie" },
+  { es:"zapatos",                         pl:"buty" },
+  { es:"chaqueta / abrigo",               pl:"kurtka" },
+  { es:"camisa",                          pl:"koszula" },
+  { es:"reloj",                           pl:"zegarek" },
+
+  // ══ 16. COMIDA (BASE) ═════════════════════════════════════════
+  { es:"comida / alimento",               pl:"jedzenie" },
+  { es:"pan (alimento)",                  pl:"chleb" },
+  { es:"carne",                           pl:"mięso" },
+  { es:"leche",                           pl:"mleko" },
+  { es:"fruta",                           pl:"owoc" },
+  { es:"verdura / hortaliza",             pl:"warzywo" },
+  { es:"arroz",                           pl:"ryż" },
+  { es:"sopa",                            pl:"zupa" },
+  { es:"café",                            pl:"kawa" },
+
+  // ══ 17. CONCEPTOS ABSTRACTOS ══════════════════════════════════
+  { es:"trabajo",                         pl:"praca" },
+  { es:"vida",                            pl:"życie" },
+  { es:"amor",                            pl:"miłość" },
+  { es:"asunto / caso",                   pl:"sprawa" },
+  { es:"parte",                           pl:"część" },
+  { es:"fin / final",                     pl:"koniec" },
+  { es:"comienzo / principio",            pl:"początek" },
+  { es:"manera / modo",                   pl:"sposób" },
+  { es:"razón / motivo",                  pl:"powód" },
+  { es:"problema",                        pl:"problem" },
+  { es:"pregunta",                        pl:"pytanie" },
+  { es:"respuesta",                       pl:"odpowiedź" },
+  { es:"historia",                        pl:"historia" },
+  { es:"idea / ocurrencia",               pl:"pomysł" },
+  { es:"verdad",                          pl:"prawda" },
+  { es:"mentira",                         pl:"kłamstwo" },
+  { es:"felicidad / suerte",              pl:"szczęście" },
+  { es:"conocimiento (sustantivo)",       pl:"wiedza" },
+  { es:"libertad",                        pl:"wolność" },
+  { es:"muerte",                          pl:"śmierć" },
+  { es:"guerra",                          pl:"wojna" },
+  { es:"miedo",                           pl:"strach" },
+  { es:"esperanza",                       pl:"nadzieja" },
+  { es:"fe / creencia",                   pl:"wiara" },
+  { es:"fuerza",                          pl:"siła" },
+  { es:"pensamiento",                     pl:"myśl" },
+  { es:"sueño (dormir/soñar)",            pl:"sen" },
+  { es:"palabra",                         pl:"słowo" },
+  { es:"idioma / lengua",                 pl:"język" },
+  { es:"nombre (de pila)",                pl:"imię" },
+  { es:"apellido",                        pl:"nazwisko" },
+  { es:"número",                          pl:"numer" },
+  { es:"mensaje / noticia",               pl:"wiadomość" },
+  { es:"película / filme",                pl:"film" },
+  { es:"música",                          pl:"muzyka" },
+  { es:"juego (sustantivo)",              pl:"gra" },
+  { es:"ayuda (sustantivo)",              pl:"pomoc" },
+  { es:"habitación / cuarto",             pl:"pokój" },
+  { es:"tranquilidad / calma",            pl:"spokój" },
+
+  // ══ 18. ADJETIVOS (SET 1) ═════════════════════════════════════
+  { es:"grande",                          pl:"duży" },
+  { es:"pequeño",                         pl:"mały" },
+  { es:"largo",                           pl:"długi" },
+  { es:"corto",                           pl:"krótki" },
+  { es:"alto (dimensión)",                pl:"wysoki" },
+  { es:"bajo (dimensión)",                pl:"niski" },
+  { es:"ancho / amplio",                  pl:"szeroki" },
+  { es:"estrecho / angosto",              pl:"wąski" },
+  { es:"pesado",                          pl:"ciężki" },
+  { es:"ligero / liviano",                pl:"lekki" },
+  { es:"viejo / antiguo",                 pl:"stary" },
+  { es:"joven",                           pl:"młody" },
+  { es:"nuevo",                           pl:"nowy" },
+  { es:"hermoso / bello",                 pl:"piękny" },
+  { es:"feo",                             pl:"brzydki" },
+  { es:"bueno",                           pl:"dobry" },
+  { es:"malo / malvado",                  pl:"zły" },
+  { es:"difícil / duro",                  pl:"trudny" },
+  { es:"fácil",                           pl:"łatwy" },
+  { es:"rápido (adj.)",                   pl:"szybki" },
+
+  // ══ 19. ADJETIVOS (SET 2) ═════════════════════════════════════
+  { es:"lento / libre",                   pl:"wolny" },
+  { es:"cálido / tibio",                  pl:"ciepły" },
+  { es:"frío (adj.)",                     pl:"zimny" },
+  { es:"caliente",                        pl:"gorący" },
+  { es:"claro / luminoso",                pl:"jasny" },
+  { es:"oscuro",                          pl:"ciemny" },
+  { es:"rojo",                            pl:"czerwony" },
+  { es:"azul",                            pl:"niebieski" },
+  { es:"verde",                           pl:"zielony" },
+  { es:"amarillo",                        pl:"żółty" },
+  { es:"blanco",                          pl:"biały" },
+  { es:"negro",                           pl:"czarny" },
+  { es:"gris",                            pl:"szary" },
+  { es:"marrón",                          pl:"brązowy" },
+  { es:"rosa / rosado",                   pl:"różowy" },
+  { es:"entero / completo",               pl:"cały" },
+  { es:"cada / todo (adj.)",              pl:"każdy" },
+  { es:"ningún / ninguno",                pl:"żaden" },
+  { es:"otro / diferente",                pl:"inny" },
+  { es:"tal / así",                       pl:"taki" },
+
+  // ══ 20. ADJETIVOS (SET 3) ═════════════════════════════════════
+  { es:"grandioso / enorme",              pl:"wielki" },
+  { es:"importante",                      pl:"ważny" },
+  { es:"verdadero / real",                pl:"prawdziwy" },
+  { es:"listo / preparado",               pl:"gotowy" },
+  { es:"último",                          pl:"ostatni" },
+  { es:"primero",                         pl:"pierwszy" },
+  { es:"segundo / otro (ord.)",           pl:"drugi" },
+  { es:"siguiente / próximo",             pl:"następny" },
+  { es:"anterior / previo",               pl:"poprzedni" },
+  { es:"querido / caro",                  pl:"drogi" },
+  { es:"interesante / curioso",           pl:"ciekawy" },
+  { es:"aburrido",                        pl:"nudny" },
+  { es:"tranquilo / calmado",             pl:"spokojny" },
+  { es:"triste",                          pl:"smutny" },
+  { es:"alegre / jovial",                 pl:"radosny" },
+  { es:"cansado",                         pl:"zmęczony" },
+  { es:"sano / saludable",                pl:"zdrowy" },
+  { es:"enfermo",                         pl:"chory" },
+  { es:"rico / adinerado",                pl:"bogaty" },
+  { es:"pobre",                           pl:"biedny" },
+
+  // ══ 21. ADJETIVOS (SET 4) ═════════════════════════════════════
+  { es:"hambriento",                      pl:"głodny" },
+  { es:"fuerte (adj.)",                   pl:"silny" },
+  { es:"débil",                           pl:"słaby" },
+  { es:"inteligente / listo",             pl:"mądry" },
+  { es:"tonto / bobo",                    pl:"głupi" },
+  { es:"honesto / honrado",               pl:"uczciwy" },
+  { es:"amable / simpático",              pl:"miły" },
+  { es:"valiente",                        pl:"odważny" },
+  { es:"tímido",                          pl:"nieśmiały" },
+  { es:"profundo",                        pl:"głęboki" },
+  { es:"gracioso / divertido",            pl:"zabawny" },
+  { es:"serio",                           pl:"poważny" },
+  { es:"extraño / raro",                  pl:"dziwny" },
+  { es:"seguro / a salvo",                pl:"bezpieczny" },
+  { es:"peligroso",                       pl:"niebezpieczny" },
+
+  // ══ 22. ADVERBIOS (SET 1) ═════════════════════════════════════
+  { es:"muy",                             pl:"bardzo" },
+  { es:"ahora",                           pl:"teraz" },
+  { es:"ya",                              pl:"już" },
+  { es:"todavía / aún",                   pl:"jeszcze" },
+  { es:"solo / solamente",                pl:"tylko" },
+  { es:"siempre",                         pl:"zawsze" },
+  { es:"nunca",                           pl:"nigdy" },
+  { es:"quizás / tal vez",                pl:"może" },
+  { es:"juntos",                          pl:"razem" },
+  { es:"bien",                            pl:"dobrze" },
+  { es:"aquí",                            pl:"tu" },
+  { es:"allí / allá",                     pl:"tam" },
+  { es:"temprano",                        pl:"wcześnie" },
+  { es:"tarde (adv.)",                    pl:"późno" },
+  { es:"rápidamente",                     pl:"szybko" },
+  { es:"despacio / lentamente",           pl:"wolno" },
+  { es:"mucho (cantidad)",                pl:"dużo" },
+  { es:"poco",                            pl:"mało" },
+  { es:"de nuevo / otra vez",             pl:"znowu" },
+  { es:"de verdad / realmente",           pl:"naprawdę" },
+
+  // ══ 23. ADVERBIOS (SET 2) ═════════════════════════════════════
+  { es:"casi",                            pl:"prawie" },
+  { es:"después / luego",                 pl:"potem" },
+  { es:"de repente",                      pl:"nagle" },
+  { es:"a menudo / frecuentemente",       pl:"często" },
+  { es:"raramente",                       pl:"rzadko" },
+  { es:"un poco",                         pl:"trochę" },
+  { es:"muchos / muchas",                 pl:"wiele" },
+  { es:"bastante / suficiente (adv.)",    pl:"dosyć" },
+  { es:"entonces (en aquel momento)",     pl:"wtedy" },
+  { es:"exactamente / precisamente",      pl:"właśnie" },
+  { es:"más (comparativo)",               pl:"bardziej" },
+  { es:"más (cantidad)",                  pl:"więcej" },
+  { es:"por supuesto / claro",            pl:"oczywiście" },
+  { es:"desafortunadamente",              pl:"niestety" },
+  { es:"probablemente / creo que",        pl:"chyba" },
+  { es:"seguramente / sin duda",          pl:"na pewno" },
+  { es:"todavía (permanencia)",           pl:"nadal" },
+  { es:"antes / anteriormente",           pl:"wcześniej" },
+  { es:"después / más tarde",             pl:"później" },
+  { es:"enseguida / ahora mismo",         pl:"zaraz" },
+
+  // ══ 24. ADVERBIOS (SET 3) ═════════════════════════════════════
+  { es:"mal (adv.)",                      pl:"źle" },
+  { es:"en algún lugar",                  pl:"gdzieś" },
+  { es:"en todas partes",                 pl:"wszędzie" },
+  { es:"en ningún lugar",                 pl:"nigdzie" },
+  { es:"solo / a solas",                  pl:"sam" },
+  { es:"probablemente / seguro",          pl:"pewnie" },
+
+  // ══ 25. NÚMEROS (BÁSICOS) ═════════════════════════════════════
+  { es:"cero",                            pl:"zero" },
+  { es:"uno",                             pl:"jeden" },
+  { es:"dos",                             pl:"dwa" },
+  { es:"tres",                            pl:"trzy" },
+  { es:"cuatro",                          pl:"cztery" },
+  { es:"cinco",                           pl:"pięć" },
+  { es:"seis",                            pl:"sześć" },
+  { es:"siete",                           pl:"siedem" },
+  { es:"ocho",                            pl:"osiem" },
+  { es:"nueve",                           pl:"dziewięć" },
+  { es:"diez",                            pl:"dziesięć" },
+  { es:"once",                            pl:"jedenaście" },
+  { es:"doce",                            pl:"dwanaście" },
+  { es:"trece",                           pl:"trzynaście" },
+  { es:"catorce",                         pl:"czternaście" },
+  { es:"quince",                          pl:"piętnaście" },
+  { es:"dieciséis",                       pl:"szesnaście" },
+  { es:"diecisiete",                      pl:"siedemnaście" },
+  { es:"dieciocho",                       pl:"osiemnaście" },
+  { es:"diecinueve",                      pl:"dziewiętnaście" },
+  { es:"veinte",                          pl:"dwadzieścia" },
+  { es:"treinta",                         pl:"trzydzieści" },
+  { es:"cuarenta",                        pl:"czterdzieści" },
+  { es:"cincuenta",                       pl:"pięćdziesiąt" },
+  { es:"sesenta",                         pl:"sześćdziesiąt" },
+  { es:"setenta",                         pl:"siedemdziesiąt" },
+  { es:"ochenta",                         pl:"osiemdziesiąt" },
+  { es:"noventa",                         pl:"dziewięćdziesiąt" },
+  { es:"cien",                            pl:"sto" },
+  { es:"mil",                             pl:"tysiąc" },
+
+  // ══ 26. ORDINALES ═════════════════════════════════════════════
+  { es:"tercero",                         pl:"trzeci" },
+  { es:"cuarto (ord.)",                   pl:"czwarty" },
+  { es:"quinto",                          pl:"piąty" },
+
+  // ══ 27. SALUDOS Y FRASES CLAVE ════════════════════════════════
+  { es:"gracias",                         pl:"dziękuję" },
+  { es:"por favor",                       pl:"proszę" },
+  { es:"perdón / disculpa",               pl:"przepraszam" },
+  { es:"hola",                            pl:"cześć" },
+  { es:"buenos días",                     pl:"dzień dobry" },
+  { es:"adiós",                           pl:"do widzenia" },
+  { es:"buenas noches",                   pl:"dobranoc" },
+  { es:"¡salud! (brindis)",               pl:"na zdrowie" },
+  { es:"¡socorro! / ¡ayuda!",             pl:"pomocy" },
+  { es:"¿de acuerdo?",                    pl:"dobrze?" },
+
+  // ══ 28. ANIMALES ══════════════════════════════════════════════
+  { es:"perro",                           pl:"pies" },
+  { es:"gato",                            pl:"kot" },
+  { es:"caballo",                         pl:"koń" },
+  { es:"pájaro",                          pl:"ptak" },
+  { es:"pez",                             pl:"ryba" },
+  { es:"conejo",                          pl:"królik" },
+  { es:"vaca",                            pl:"krowa" },
+  { es:"cerdo",                           pl:"świnia" },
+  { es:"oveja",                           pl:"owca" },
+  { es:"pollo",                           pl:"kurczak" },
+  { es:"oso",                             pl:"niedźwiedź" },
+  { es:"lobo",                            pl:"wilk" },
+  { es:"elefante",                        pl:"słoń" },
+  { es:"tigre",                           pl:"tygrys" },
+  { es:"mariposa",                        pl:"motyl" },
+
+  // ══ 29. TECNOLOGÍA ════════════════════════════════════════════
+  { es:"internet",                        pl:"internet" },
+  { es:"correo electrónico",              pl:"poczta elektroniczna" },
+  { es:"aplicación (móvil)",              pl:"aplikacja" },
+  { es:"pantalla",                        pl:"ekran" },
+  { es:"teclado",                         pl:"klawiatura" },
+  { es:"contraseña",                      pl:"hasło" },
+  { es:"archivo (digital)",               pl:"plik" },
+  { es:"nube (digital)",                  pl:"chmura" },
+  { es:"red social",                      pl:"sieć społecznościowa" },
+  { es:"cámara",                          pl:"aparat" },
+  { es:"auriculares",                     pl:"słuchawki" },
+  { es:"cargador",                        pl:"ładowarka" },
+
+  // ══ 30. VIAJES Y TRANSPORTE ═══════════════════════════════════
+  { es:"avión",                           pl:"samolot" },
+  { es:"tren",                            pl:"pociąg" },
+  { es:"autobús",                         pl:"autobus" },
+  { es:"barco",                           pl:"statek" },
+  { es:"bicicleta",                       pl:"rower" },
+  { es:"taxi",                            pl:"taksówka" },
+  { es:"metro",                           pl:"metro" },
+  { es:"pasaporte",                       pl:"paszport" },
+  { es:"billete / ticket",                pl:"bilet" },
+  { es:"maleta",                          pl:"walizka" },
+  { es:"vuelo",                           pl:"lot" },
+  { es:"frontera",                        pl:"granica" },
+
+  // ══ 31. SALUD Y MEDICINA ══════════════════════════════════════
+  { es:"dentista",                        pl:"dentysta" },
+  { es:"medicamento",                     pl:"lekarstwo" },
+  { es:"enfermedad",                      pl:"choroba" },
+  { es:"dolor",                           pl:"ból" },
+  { es:"fiebre",                          pl:"gorączka" },
+  { es:"resfriado",                       pl:"przeziębienie" },
+  { es:"herida",                          pl:"rana" },
+  { es:"accidente",                       pl:"wypadek" },
+  { es:"ambulancia",                      pl:"karetka" },
+  { es:"farmacia",                        pl:"apteka" },
+
+  // ══ 32. HOGAR E INTERIORES ════════════════════════════════════
+  { es:"cocina (habitación)",             pl:"kuchnia" },
+  { es:"cuarto de baño",                  pl:"łazienka" },
+  { es:"dormitorio",                      pl:"sypialnia" },
+  { es:"salón / sala",                    pl:"salon" },
+  { es:"jardín",                          pl:"ogród" },
+  { es:"pared",                           pl:"ściana" },
+  { es:"suelo / piso",                    pl:"podłoga" },
+  { es:"armario",                         pl:"szafa" },
+  { es:"lámpara",                         pl:"lampa" },
+  { es:"alfombra",                        pl:"dywan" },
+  { es:"ducha",                           pl:"prysznic" },
+  { es:"espejo",                          pl:"lustro" },
+
+  // ══ 33. EMOCIONES ═════════════════════════════════════════════
+  { es:"alegría (sustantivo)",            pl:"radość" },
+  { es:"tristeza",                        pl:"smutek" },
+  { es:"enojo / ira",                     pl:"złość" },
+  { es:"sorpresa (sustantivo)",           pl:"zaskoczenie" },
+  { es:"vergüenza",                       pl:"wstyd" },
+  { es:"culpa",                           pl:"wina" },
+  { es:"celos",                           pl:"zazdrość" },
+  { es:"orgullo",                         pl:"duma" },
+  { es:"satisfacción",                    pl:"satysfakcja" },
+  { es:"decepción",                       pl:"rozczarowanie" },
+  { es:"ansiedad",                        pl:"lęk" },
+  { es:"paciencia",                       pl:"cierpliwość" },
+  { es:"amor propio",                     pl:"miłość własna" },
+  { es:"nostalgia",                       pl:"nostalgia" },
+
+  // ══ 34. CLIMA Y ESTACIONES ════════════════════════════════════
+  { es:"calor (sustantivo)",              pl:"upał" },
+  { es:"frío (sustantivo)",               pl:"chłód" },
+  { es:"niebla",                          pl:"mgła" },
+  { es:"tormenta",                        pl:"burza" },
+  { es:"trueno",                          pl:"grzmot" },
+  { es:"relámpago",                       pl:"błyskawica" },
+  { es:"arco iris",                       pl:"tęcza" },
+  { es:"primavera",                       pl:"wiosna" },
+  { es:"verano",                          pl:"lato" },
+  { es:"otoño",                           pl:"jesień" },
+  { es:"invierno",                        pl:"zima" },
+  { es:"temperatura",                     pl:"temperatura" },
+
+  // ══ 35. COMIDA Y BEBIDA (AMPLIADO) ════════════════════════════
+  { es:"queso",                           pl:"ser" },
+  { es:"mantequilla",                     pl:"masło" },
+  { es:"huevo",                           pl:"jajko" },
+  { es:"azúcar",                          pl:"cukier" },
+  { es:"sal",                             pl:"sól" },
+  { es:"aceite",                          pl:"olej" },
+  { es:"pimienta",                        pl:"pieprz" },
+  { es:"ajo",                             pl:"czosnek" },
+  { es:"cebolla",                         pl:"cebula" },
+  { es:"tomate",                          pl:"pomidor" },
+  { es:"manzana",                         pl:"jabłko" },
+  { es:"naranja (fruta)",                 pl:"pomarańcza" },
+  { es:"plátano",                         pl:"banan" },
+  { es:"uvas",                            pl:"winogrona" },
+  { es:"helado",                          pl:"lody" },
+  { es:"cerveza",                         pl:"piwo" },
+  { es:"vino",                            pl:"wino" },
+  { es:"té",                              pl:"herbata" },
+  { es:"zumo / jugo",                     pl:"sok" },
+  { es:"postre",                          pl:"deser" },
+
+  // ══ 36. MÁS VERBOS ════════════════════════════════════════════
+  { es:"pagar (inf.)",                    pl:"płacić" },
+  { es:"viajar (inf.)",                   pl:"podróżować" },
+  { es:"tocar / palpar",                  pl:"dotykać" },
+  { es:"llamar por teléfono",             pl:"dzwonić" },
+  { es:"enviar / mandar",                 pl:"wysyłać" },
+  { es:"recibir (inf.)",                  pl:"otrzymywać" },
+  { es:"mostrar / enseñar",               pl:"pokazywać" },
+  { es:"cambiar (inf.)",                  pl:"zmieniać" },
+  { es:"intentar / probar",               pl:"próbować" },
+  { es:"lavar (inf.)",                    pl:"myć" },
+  { es:"limpiar (inf.)",                  pl:"sprzątać" },
+  { es:"preparar (inf.)",                 pl:"przygotowywać" },
+  { es:"construir (inf.)",                pl:"budować" },
+  { es:"crear (inf.)",                    pl:"tworzyć" },
+  { es:"cortar (inf.)",                   pl:"ciąć" },
+  { es:"diseñar (inf.)",                  pl:"projektować" },
+  { es:"mejorar (inf.)",                  pl:"poprawiać" },
+  { es:"continuar (inf.)",                pl:"kontynuować" },
+  { es:"compartir (inf.)",                pl:"dzielić się" },
+  { es:"perdonar (inf.)",                 pl:"wybaczać" },
+
+  // ══ 37. MÁS ADJETIVOS ════════════════════════════════════════
+  { es:"vacío",                           pl:"pusty" },
+  { es:"lleno",                           pl:"pełny" },
+  { es:"sucio",                           pl:"brudny" },
+  { es:"limpio",                          pl:"czysty" },
+  { es:"roto / estropeado",               pl:"zepsuty" },
+  { es:"moderno",                         pl:"nowoczesny" },
+  { es:"popular",                         pl:"popularny" },
+  { es:"famoso",                          pl:"sławny" },
+  { es:"especial",                        pl:"specjalny" },
+  { es:"normal",                          pl:"normalny" },
+  { es:"perfecto",                        pl:"doskonały" },
+  { es:"terrible",                        pl:"straszny" },
+  { es:"increíble",                       pl:"niesamowity" },
+  { es:"necesario",                       pl:"konieczny" },
+  { es:"propio",                          pl:"własny" },
+
+  // ══ 38. MÁS COLORES ═══════════════════════════════════════════
+  { es:"morado / violeta",                pl:"fioletowy" },
+  { es:"naranja (color)",                 pl:"pomarańczowy" },
+  { es:"dorado",                          pl:"złoty" },
+
+];
+
+// ──────────────────────────────────────────────────────────────────
+//  VERB CONJUGATION TABLES  → expanded into match cards below
+//  Present tense uses ONLY imperfective verbs (in Polish the "present"
+//  of a perfective verb actually carries FUTURE meaning).
+//  Format per verb:
+//    es / pl = Spanish & Polish infinitive (reference only)
+//    pr = [ja, ty, on/ona, my]        present tense
+//    pa = [ja(m/f), ty(m/f), on/ona]  past tense
+//    ep = [yo, tú, él/ella, nosotros] Spanish present
+//    ea = [yo, tú, él/ella]           Spanish past (pretérito)
+// ──────────────────────────────────────────────────────────────────
+const VERBS = [
+  // ── núcleo irregular ──────────────────────────────────────────
+  { es:"ser / estar", pl:"być", pr:["jestem","jesteś","jest","jesteśmy"], pa:["byłem/byłam","byłeś/byłaś","był/była"], ep:["soy / estoy","eres / estás","es / está","somos / estamos"], ea:["fui / estuve","fuiste / estuviste","fue / estuvo"] },
+  { es:"tener", pl:"mieć", pr:["mam","masz","ma","mamy"], pa:["miałem/miałam","miałeś/miałaś","miał/miała"], ep:["tengo","tienes","tiene","tenemos"], ea:["tuve","tuviste","tuvo"] },
+  { es:"querer", pl:"chcieć", pr:["chcę","chcesz","chce","chcemy"], pa:["chciałem/chciałam","chciałeś/chciałaś","chciał/chciała"], ep:["quiero","quieres","quiere","queremos"], ea:["quise","quisiste","quiso"] },
+  { es:"poder", pl:"móc", pr:["mogę","możesz","może","możemy"], pa:["mogłem/mogłam","mogłeś/mogłaś","mógł/mogła"], ep:["puedo","puedes","puede","podemos"], ea:["pude","pudiste","pudo"] },
+  { es:"saber (datos)", pl:"wiedzieć", pr:["wiem","wiesz","wie","wiemy"], pa:["wiedziałem/wiedziałam","wiedziałeś/wiedziałaś","wiedział/wiedziała"], ep:["sé","sabes","sabe","sabemos"], ea:["supe","supiste","supo"] },
+  { es:"saber hacer", pl:"umieć", pr:["umiem","umiesz","umie","umiemy"], pa:["umiałem/umiałam","umiałeś/umiałaś","umiał/umiała"], ep:["sé hacer","sabes hacer","sabe hacer","sabemos hacer"], ea:["supe hacer","supiste hacer","supo hacer"] },
+  { es:"deber / tener que", pl:"musieć", pr:["muszę","musisz","musi","musimy"], pa:["musiałem/musiałam","musiałeś/musiałaś","musiał/musiała"], ep:["debo","debes","debe","debemos"], ea:["debí","debiste","debió"] },
+  { es:"entender", pl:"rozumieć", pr:["rozumiem","rozumiesz","rozumie","rozumiemy"], pa:["rozumiałem/rozumiałam","rozumiałeś/rozumiałaś","rozumiał/rozumiała"], ep:["entiendo","entiendes","entiende","entendemos"], ea:["entendí","entendiste","entendió"] },
+  { es:"comer", pl:"jeść", pr:["jem","jesz","je","jemy"], pa:["jadłem/jadłam","jadłeś/jadłaś","jadł/jadła"], ep:["como","comes","come","comemos"], ea:["comí","comiste","comió"] },
+  { es:"preferir", pl:"woleć", pr:["wolę","wolisz","woli","wolimy"], pa:["wolałem/wolałam","wolałeś/wolałaś","wolał/wolała"], ep:["prefiero","prefieres","prefiere","preferimos"], ea:["preferí","preferiste","prefirió"] },
+
+  // ── movimiento ────────────────────────────────────────────────
+  { es:"ir (a pie)", pl:"iść", pr:["idę","idziesz","idzie","idziemy"], pa:["szedłem/szłam","szedłeś/szłaś","szedł/szła"], ep:["voy (a pie)","vas (a pie)","va (a pie)","vamos (a pie)"], ea:["fui (a pie)","fuiste (a pie)","fue (a pie)"] },
+  { es:"ir (en vehículo)", pl:"jechać", pr:["jadę","jedziesz","jedzie","jedziemy"], pa:["jechałem/jechałam","jechałeś/jechałaś","jechał/jechała"], ep:["voy (en coche)","vas (en coche)","va (en coche)","vamos (en coche)"], ea:["fui (en coche)","fuiste (en coche)","fue (en coche)"] },
+  { es:"andar / caminar", pl:"chodzić", pr:["chodzę","chodzisz","chodzi","chodzimy"], pa:["chodziłem/chodziłam","chodziłeś/chodziłaś","chodził/chodziła"], ep:["ando","andas","anda","andamos"], ea:["anduve","anduviste","anduvo"] },
+  { es:"correr", pl:"biegać", pr:["biegam","biegasz","biega","biegamy"], pa:["biegałem/biegałam","biegałeś/biegałaś","biegał/biegała"], ep:["corro","corres","corre","corremos"], ea:["corrí","corriste","corrió"] },
+  { es:"venir / llegar", pl:"przychodzić", pr:["przychodzę","przychodzisz","przychodzi","przychodzimy"], pa:["przychodziłem/przychodziłam","przychodziłeś/przychodziłaś","przychodził/przychodziła"], ep:["vengo","vienes","viene","venimos"], ea:["vine","viniste","vino"] },
+  { es:"entrar", pl:"wchodzić", pr:["wchodzę","wchodzisz","wchodzi","wchodzimy"], pa:["wchodziłem/wchodziłam","wchodziłeś/wchodziłaś","wchodził/wchodziła"], ep:["entro","entras","entra","entramos"], ea:["entré","entraste","entró"] },
+  { es:"salir", pl:"wychodzić", pr:["wychodzę","wychodzisz","wychodzi","wychodzimy"], pa:["wychodziłem/wychodziłam","wychodziłeś/wychodziłaś","wychodził/wychodziła"], ep:["salgo","sales","sale","salimos"], ea:["salí","saliste","salió"] },
+  { es:"volver / regresar", pl:"wracać", pr:["wracam","wracasz","wraca","wracamy"], pa:["wracałem/wracałam","wracałeś/wracałaś","wracał/wracała"], ep:["vuelvo","vuelves","vuelve","volvemos"], ea:["volví","volviste","volvió"] },
+  { es:"volar", pl:"latać", pr:["latam","latasz","lata","latamy"], pa:["latałem/latałam","latałeś/latałaś","latał/latała"], ep:["vuelo","vuelas","vuela","volamos"], ea:["volé","volaste","voló"] },
+  { es:"nadar", pl:"pływać", pr:["pływam","pływasz","pływa","pływamy"], pa:["pływałem/pływałam","pływałeś/pływałaś","pływał/pływała"], ep:["nado","nadas","nada","nadamos"], ea:["nadé","nadaste","nadó"] },
+  { es:"saltar", pl:"skakać", pr:["skaczę","skaczesz","skacze","skaczemy"], pa:["skakałem/skakałam","skakałeś/skakałaś","skakał/skakała"], ep:["salto","saltas","salta","saltamos"], ea:["salté","saltaste","saltó"] },
+  { es:"levantarse", pl:"wstawać", pr:["wstaję","wstajesz","wstaje","wstajemy"], pa:["wstawałem/wstawałam","wstawałeś/wstawałaś","wstawał/wstawała"], ep:["me levanto","te levantas","se levanta","nos levantamos"], ea:["me levanté","te levantaste","se levantó"] },
+  { es:"sentarse", pl:"siadać", pr:["siadam","siadasz","siada","siadamy"], pa:["siadałem/siadałam","siadałeś/siadałaś","siadał/siadała"], ep:["me siento","te sientas","se sienta","nos sentamos"], ea:["me senté","te sentaste","se sentó"] },
+  { es:"caerse", pl:"spadać", pr:["spadam","spadasz","spada","spadamy"], pa:["spadałem/spadałam","spadałeś/spadałaś","spadał/spadała"], ep:["me caigo","te caes","se cae","nos caemos"], ea:["me caí","te caíste","se cayó"] },
+  { es:"quedarse", pl:"zostawać", pr:["zostaję","zostajesz","zostaje","zostajemy"], pa:["zostawałem/zostawałam","zostawałeś/zostawałaś","zostawał/zostawała"], ep:["me quedo","te quedas","se queda","nos quedamos"], ea:["me quedé","te quedaste","se quedó"] },
+
+  // ── comunicación ──────────────────────────────────────────────
+  { es:"hablar", pl:"mówić", pr:["mówię","mówisz","mówi","mówimy"], pa:["mówiłem/mówiłam","mówiłeś/mówiłaś","mówił/mówiła"], ep:["hablo","hablas","habla","hablamos"], ea:["hablé","hablaste","habló"] },
+  { es:"preguntar", pl:"pytać", pr:["pytam","pytasz","pyta","pytamy"], pa:["pytałem/pytałam","pytałeś/pytałaś","pytał/pytała"], ep:["pregunto","preguntas","pregunta","preguntamos"], ea:["pregunté","preguntaste","preguntó"] },
+  { es:"pedir", pl:"prosić", pr:["proszę","prosisz","prosi","prosimy"], pa:["prosiłem/prosiłam","prosiłeś/prosiłaś","prosił/prosiła"], ep:["pido","pides","pide","pedimos"], ea:["pedí","pediste","pidió"] },
+  { es:"responder / contestar", pl:"odpowiadać", pr:["odpowiadam","odpowiadasz","odpowiada","odpowiadamy"], pa:["odpowiadałem/odpowiadałam","odpowiadałeś/odpowiadałaś","odpowiadał/odpowiadała"], ep:["respondo","respondes","responde","respondemos"], ea:["respondí","respondiste","respondió"] },
+  { es:"narrar / contar", pl:"opowiadać", pr:["opowiadam","opowiadasz","opowiada","opowiadamy"], pa:["opowiadałem/opowiadałam","opowiadałeś/opowiadałaś","opowiadał/opowiadała"], ep:["narro","narras","narra","narramos"], ea:["narré","narraste","narró"] },
+  { es:"repetir", pl:"powtarzać", pr:["powtarzam","powtarzasz","powtarza","powtarzamy"], pa:["powtarzałem/powtarzałam","powtarzałeś/powtarzałaś","powtarzał/powtarzała"], ep:["repito","repites","repite","repetimos"], ea:["repetí","repetiste","repitió"] },
+  { es:"explicar", pl:"wyjaśniać", pr:["wyjaśniam","wyjaśniasz","wyjaśnia","wyjaśniamy"], pa:["wyjaśniałem/wyjaśniałam","wyjaśniałeś/wyjaśniałaś","wyjaśniał/wyjaśniała"], ep:["explico","explicas","explica","explicamos"], ea:["expliqué","explicaste","explicó"] },
+  { es:"traducir", pl:"tłumaczyć", pr:["tłumaczę","tłumaczysz","tłumaczy","tłumaczymy"], pa:["tłumaczyłem/tłumaczyłam","tłumaczyłeś/tłumaczyłaś","tłumaczył/tłumaczyła"], ep:["traduzco","traduces","traduce","traducimos"], ea:["traduje","tradujiste","tradujo"] },
+  { es:"llamar (por tel.)", pl:"dzwonić", pr:["dzwonię","dzwonisz","dzwoni","dzwonimy"], pa:["dzwoniłem/dzwoniłam","dzwoniłeś/dzwoniłaś","dzwonił/dzwoniła"], ep:["llamo (por tel.)","llamas (por tel.)","llama (por tel.)","llamamos (por tel.)"], ea:["llamé (por tel.)","llamaste (por tel.)","llamó (por tel.)"] },
+  { es:"llamar (a voces)", pl:"wołać", pr:["wołam","wołasz","woła","wołamy"], pa:["wołałem/wołałam","wołałeś/wołałaś","wołał/wołała"], ep:["llamo (a voces)","llamas (a voces)","llama (a voces)","llamamos (a voces)"], ea:["llamé (a voces)","llamaste (a voces)","llamó (a voces)"] },
+  { es:"llamarse", pl:"nazywać się", pr:["nazywam się","nazywasz się","nazywa się","nazywamy się"], pa:["nazywałem się/nazywałam się","nazywałeś się/nazywałaś się","nazywał się/nazywała się"], ep:["me llamo","te llamas","se llama","nos llamamos"], ea:["me llamé","te llamaste","se llamó"] },
+  { es:"gritar", pl:"krzyczeć", pr:["krzyczę","krzyczysz","krzyczy","krzyczymy"], pa:["krzyczałem/krzyczałam","krzyczałeś/krzyczałaś","krzyczał/krzyczała"], ep:["grito","gritas","grita","gritamos"], ea:["grité","gritaste","gritó"] },
+  { es:"agradecer", pl:"dziękować", pr:["dziękuję","dziękujesz","dziękuje","dziękujemy"], pa:["dziękowałem/dziękowałam","dziękowałeś/dziękowałaś","dziękował/dziękowała"], ep:["agradezco","agradeces","agradece","agradecemos"], ea:["agradecí","agradeciste","agradeció"] },
+  { es:"disculparse", pl:"przepraszać", pr:["przepraszam","przepraszasz","przeprasza","przepraszamy"], pa:["przepraszałem/przepraszałam","przepraszałeś/przepraszałaś","przepraszał/przepraszała"], ep:["me disculpo","te disculpas","se disculpa","nos disculpamos"], ea:["me disculpé","te disculpaste","se disculpó"] },
+  { es:"saludar", pl:"witać", pr:["witam","witasz","wita","witamy"], pa:["witałem/witałam","witałeś/witałaś","witał/witała"], ep:["saludo","saludas","saluda","saludamos"], ea:["saludé","saludaste","saludó"] },
+  { es:"invitar", pl:"zapraszać", pr:["zapraszam","zapraszasz","zaprasza","zapraszamy"], pa:["zapraszałem/zapraszałam","zapraszałeś/zapraszałaś","zapraszał/zapraszała"], ep:["invito","invitas","invita","invitamos"], ea:["invité","invitaste","invitó"] },
+  { es:"prometer", pl:"obiecywać", pr:["obiecuję","obiecujesz","obiecuje","obiecujemy"], pa:["obiecywałem/obiecywałam","obiecywałeś/obiecywałaś","obiecywał/obiecywała"], ep:["prometo","prometes","promete","prometemos"], ea:["prometí","prometiste","prometió"] },
+  { es:"quejarse", pl:"narzekać", pr:["narzekam","narzekasz","narzeka","narzekamy"], pa:["narzekałem/narzekałam","narzekałeś/narzekałaś","narzekał/narzekała"], ep:["me quejo","te quejas","se queja","nos quejamos"], ea:["me quejé","te quejaste","se quejó"] },
+
+  // ── percepción y mente ────────────────────────────────────────
+  { es:"ver", pl:"widzieć", pr:["widzę","widzisz","widzi","widzimy"], pa:["widziałem/widziałam","widziałeś/widziałaś","widział/widziała"], ep:["veo","ves","ve","vemos"], ea:["vi","viste","vio"] },
+  { es:"ver (la tele)", pl:"oglądać", pr:["oglądam","oglądasz","ogląda","oglądamy"], pa:["oglądałem/oglądałam","oglądałeś/oglądałaś","oglądał/oglądała"], ep:["veo (la tele)","ves (la tele)","ve (la tele)","vemos (la tele)"], ea:["vi (la tele)","viste (la tele)","vio (la tele)"] },
+  { es:"mirar", pl:"patrzeć", pr:["patrzę","patrzysz","patrzy","patrzymy"], pa:["patrzyłem/patrzyłam","patrzyłeś/patrzyłaś","patrzył/patrzyła"], ep:["miro","miras","mira","miramos"], ea:["miré","miraste","miró"] },
+  { es:"oír", pl:"słyszeć", pr:["słyszę","słyszysz","słyszy","słyszymy"], pa:["słyszałem/słyszałam","słyszałeś/słyszałaś","słyszał/słyszała"], ep:["oigo","oyes","oye","oímos"], ea:["oí","oíste","oyó"] },
+  { es:"escuchar", pl:"słuchać", pr:["słucham","słuchasz","słucha","słuchamy"], pa:["słuchałem/słuchałam","słuchałeś/słuchałaś","słuchał/słuchała"], ep:["escucho","escuchas","escucha","escuchamos"], ea:["escuché","escuchaste","escuchó"] },
+  { es:"sentir", pl:"czuć", pr:["czuję","czujesz","czuje","czujemy"], pa:["czułem/czułam","czułeś/czułaś","czuł/czuła"], ep:["siento","sientes","siente","sentimos"], ea:["sentí","sentiste","sintió"] },
+  { es:"pensar", pl:"myśleć", pr:["myślę","myślisz","myśli","myślimy"], pa:["myślałem/myślałam","myślałeś/myślałaś","myślał/myślała"], ep:["pienso","piensas","piensa","pensamos"], ea:["pensé","pensaste","pensó"] },
+  { es:"creer", pl:"wierzyć", pr:["wierzę","wierzysz","wierzy","wierzymy"], pa:["wierzyłem/wierzyłam","wierzyłeś/wierzyłaś","wierzył/wierzyła"], ep:["creo","crees","cree","creemos"], ea:["creí","creíste","creyó"] },
+  { es:"considerar / opinar", pl:"uważać", pr:["uważam","uważasz","uważa","uważamy"], pa:["uważałem/uważałam","uważałeś/uważałaś","uważał/uważała"], ep:["opino","opinas","opina","opinamos"], ea:["opiné","opinaste","opinó"] },
+  { es:"recordar", pl:"pamiętać", pr:["pamiętam","pamiętasz","pamięta","pamiętamy"], pa:["pamiętałem/pamiętałam","pamiętałeś/pamiętałaś","pamiętał/pamiętała"], ep:["recuerdo","recuerdas","recuerda","recordamos"], ea:["recordé","recordaste","recordó"] },
+  { es:"olvidar", pl:"zapominać", pr:["zapominam","zapominasz","zapomina","zapominamy"], pa:["zapominałem/zapominałam","zapominałeś/zapominałaś","zapominał/zapominała"], ep:["olvido","olvidas","olvida","olvidamos"], ea:["olvidé","olvidaste","olvidó"] },
+  { es:"soñar (dormido)", pl:"śnić", pr:["śnię","śnisz","śni","śnimy"], pa:["śniłem/śniłam","śniłeś/śniłaś","śnił/śniła"], ep:["sueño (dormido)","sueñas (dormido)","sueña (dormido)","soñamos (dormidos)"], ea:["soñé (dormido)","soñaste (dormido)","soñó (dormido)"] },
+  { es:"soñar (despierto)", pl:"marzyć", pr:["marzę","marzysz","marzy","marzymy"], pa:["marzyłem/marzyłam","marzyłeś/marzyłaś","marzył/marzyła"], ep:["sueño (despierto)","sueñas (despierto)","sueña (despierto)","soñamos (despiertos)"], ea:["soñé (despierto)","soñaste (despierto)","soñó (despierto)"] },
+
+  // ── sentimientos ──────────────────────────────────────────────
+  { es:"amar", pl:"kochać", pr:["kocham","kochasz","kocha","kochamy"], pa:["kochałem/kochałam","kochałeś/kochałaś","kochał/kochała"], ep:["amo","amas","ama","amamos"], ea:["amé","amaste","amó"] },
+  { es:"gustar", pl:"lubić", pr:["lubię","lubisz","lubi","lubimy"], pa:["lubiłem/lubiłam","lubiłeś/lubiłaś","lubił/lubiła"], ep:["me gusta","te gusta","le gusta","nos gusta"], ea:["me gustó","te gustó","le gustó"] },
+  { es:"alegrarse", pl:"cieszyć się", pr:["cieszę się","cieszysz się","cieszy się","cieszymy się"], pa:["cieszyłem się/cieszyłam się","cieszyłeś się/cieszyłaś się","cieszył się/cieszyła się"], ep:["me alegro","te alegras","se alegra","nos alegramos"], ea:["me alegré","te alegraste","se alegró"] },
+  { es:"preocuparse", pl:"martwić się", pr:["martwię się","martwisz się","martwi się","martwimy się"], pa:["martwiłem się/martwiłam się","martwiłeś się/martwiłaś się","martwił się/martwiła się"], ep:["me preocupo","te preocupas","se preocupa","nos preocupamos"], ea:["me preocupé","te preocupaste","se preocupó"] },
+  { es:"temer / tener miedo", pl:"bać się", pr:["boję się","boisz się","boi się","boimy się"], pa:["bałem się/bałam się","bałeś się/bałaś się","bał się/bała się"], ep:["temo","temes","teme","tememos"], ea:["temí","temiste","temió"] },
+  { es:"reír", pl:"śmiać się", pr:["śmieję się","śmiejesz się","śmieje się","śmiejemy się"], pa:["śmiałem się/śmiałam się","śmiałeś się/śmiałaś się","śmiał się/śmiała się"], ep:["me río","te ríes","se ríe","nos reímos"], ea:["me reí","te reíste","se rió"] },
+  { es:"llorar", pl:"płakać", pr:["płaczę","płaczesz","płacze","płaczemy"], pa:["płakałem/płakałam","płakałeś/płakałaś","płakał/płakała"], ep:["lloro","lloras","llora","lloramos"], ea:["lloré","lloraste","lloró"] },
+  { es:"divertirse", pl:"bawić się", pr:["bawię się","bawisz się","bawi się","bawimy się"], pa:["bawiłem się/bawiłam się","bawiłeś się/bawiłaś się","bawił się/bawiła się"], ep:["me divierto","te diviertes","se divierte","nos divertimos"], ea:["me divertí","te divertiste","se divirtió"] },
+  { es:"enfadarse", pl:"denerwować się", pr:["denerwuję się","denerwujesz się","denerwuje się","denerwujemy się"], pa:["denerwowałem się/denerwowałam się","denerwowałeś się/denerwowałaś się","denerwował się/denerwowała się"], ep:["me enfado","te enfadas","se enfada","nos enfadamos"], ea:["me enfadé","te enfadaste","se enfadó"] },
+  { es:"interesarse", pl:"interesować się", pr:["interesuję się","interesujesz się","interesuje się","interesujemy się"], pa:["interesowałem się/interesowałam się","interesowałeś się/interesowałaś się","interesował się/interesowała się"], ep:["me intereso","te interesas","se interesa","nos interesamos"], ea:["me interesé","te interesaste","se interesó"] },
+  { es:"lamentar / arrepentirse", pl:"żałować", pr:["żałuję","żałujesz","żałuje","żałujemy"], pa:["żałowałem/żałowałam","żałowałeś/żałowałaś","żałował/żałowała"], ep:["lamento","lamentas","lamenta","lamentamos"], ea:["lamenté","lamentaste","lamentó"] },
+  { es:"rezar", pl:"modlić się", pr:["modlę się","modlisz się","modli się","modlimy się"], pa:["modliłem się/modliłam się","modliłeś się/modliłaś się","modlił się/modliła się"], ep:["rezo","rezas","reza","rezamos"], ea:["recé","rezaste","rezó"] },
+
+  // ── actividad diaria ──────────────────────────────────────────
+  { es:"hacer", pl:"robić", pr:["robię","robisz","robi","robimy"], pa:["robiłem/robiłam","robiłeś/robiłaś","robił/robiła"], ep:["hago","haces","hace","hacemos"], ea:["hice","hiciste","hizo"] },
+  { es:"trabajar", pl:"pracować", pr:["pracuję","pracujesz","pracuje","pracujemy"], pa:["pracowałem/pracowałam","pracowałeś/pracowałaś","pracował/pracowała"], ep:["trabajo","trabajas","trabaja","trabajamos"], ea:["trabajé","trabajaste","trabajó"] },
+  { es:"leer", pl:"czytać", pr:["czytam","czytasz","czyta","czytamy"], pa:["czytałem/czytałam","czytałeś/czytałaś","czytał/czytała"], ep:["leo","lees","lee","leemos"], ea:["leí","leíste","leyó"] },
+  { es:"escribir", pl:"pisać", pr:["piszę","piszesz","pisze","piszemy"], pa:["pisałem/pisałam","pisałeś/pisałaś","pisał/pisała"], ep:["escribo","escribes","escribe","escribimos"], ea:["escribí","escribiste","escribió"] },
+  { es:"beber", pl:"pić", pr:["piję","pijesz","pije","pijemy"], pa:["piłem/piłam","piłeś/piłaś","pił/piła"], ep:["bebo","bebes","bebe","bebemos"], ea:["bebí","bebiste","bebió"] },
+  { es:"dormir", pl:"spać", pr:["śpię","śpisz","śpi","śpimy"], pa:["spałem/spałam","spałeś/spałaś","spał/spała"], ep:["duermo","duermes","duerme","dormimos"], ea:["dormí","dormiste","durmió"] },
+  { es:"vivir / existir", pl:"żyć", pr:["żyję","żyjesz","żyje","żyjemy"], pa:["żyłem/żyłam","żyłeś/żyłaś","żył/żyła"], ep:["vivo","vives","vive","vivimos"], ea:["viví","viviste","vivió"] },
+  { es:"residir", pl:"mieszkać", pr:["mieszkam","mieszkasz","mieszka","mieszkamy"], pa:["mieszkałem/mieszkałam","mieszkałeś/mieszkałaś","mieszkał/mieszkała"], ep:["resido","resides","reside","residimos"], ea:["residí","residiste","residió"] },
+  { es:"cocinar", pl:"gotować", pr:["gotuję","gotujesz","gotuje","gotujemy"], pa:["gotowałem/gotowałam","gotowałeś/gotowałaś","gotował/gotowała"], ep:["cocino","cocinas","cocina","cocinamos"], ea:["cociné","cocinaste","cocinó"] },
+  { es:"lavar", pl:"myć", pr:["myję","myjesz","myje","myjemy"], pa:["myłem/myłam","myłeś/myłaś","mył/myła"], ep:["lavo","lavas","lava","lavamos"], ea:["lavé","lavaste","lavó"] },
+  { es:"limpiar / ordenar", pl:"sprzątać", pr:["sprzątam","sprzątasz","sprząta","sprzątamy"], pa:["sprzątałem/sprzątałam","sprzątałeś/sprzątałaś","sprzątał/sprzątała"], ep:["limpio","limpias","limpia","limpiamos"], ea:["limpié","limpiaste","limpió"] },
+  { es:"vestirse", pl:"ubierać się", pr:["ubieram się","ubierasz się","ubiera się","ubieramy się"], pa:["ubierałem się/ubierałam się","ubierałeś się/ubierałaś się","ubierał się/ubierała się"], ep:["me visto","te vistes","se viste","nos vestimos"], ea:["me vestí","te vestiste","se vistió"] },
+  { es:"descansar", pl:"odpoczywać", pr:["odpoczywam","odpoczywasz","odpoczywa","odpoczywamy"], pa:["odpoczywałem/odpoczywałam","odpoczywałeś/odpoczywałaś","odpoczywał/odpoczywała"], ep:["descanso","descansas","descansa","descansamos"], ea:["descansé","descansaste","descansó"] },
+  { es:"cantar", pl:"śpiewać", pr:["śpiewam","śpiewasz","śpiewa","śpiewamy"], pa:["śpiewałem/śpiewałam","śpiewałeś/śpiewałaś","śpiewał/śpiewała"], ep:["canto","cantas","canta","cantamos"], ea:["canté","cantaste","cantó"] },
+  { es:"bailar", pl:"tańczyć", pr:["tańczę","tańczysz","tańczy","tańczymy"], pa:["tańczyłem/tańczyłam","tańczyłeś/tańczyłaś","tańczył/tańczyła"], ep:["bailo","bailas","baila","bailamos"], ea:["bailé","bailaste","bailó"] },
+  { es:"jugar / tocar", pl:"grać", pr:["gram","grasz","gra","gramy"], pa:["grałem/grałam","grałeś/grałaś","grał/grała"], ep:["juego","juegas","juega","jugamos"], ea:["jugué","jugaste","jugó"] },
+  { es:"practicar / entrenar", pl:"ćwiczyć", pr:["ćwiczę","ćwiczysz","ćwiczy","ćwiczymy"], pa:["ćwiczyłem/ćwiczyłam","ćwiczyłeś/ćwiczyłaś","ćwiczył/ćwiczyła"], ep:["practico","practicas","practica","practicamos"], ea:["practiqué","practicaste","practicó"] },
+  { es:"afeitarse", pl:"golić się", pr:["golę się","golisz się","goli się","golimy się"], pa:["goliłem się/goliłam się","goliłeś się/goliłaś się","golił się/goliła się"], ep:["me afeito","te afeitas","se afeita","nos afeitamos"], ea:["me afeité","te afeitaste","se afeitó"] },
+  { es:"bromear", pl:"żartować", pr:["żartuję","żartujesz","żartuje","żartujemy"], pa:["żartowałem/żartowałam","żartowałeś/żartowałaś","żartował/żartowała"], ep:["bromeo","bromeas","bromea","bromeamos"], ea:["bromeé","bromeaste","bromeó"] },
+
+  // ── aprender / enseñar ────────────────────────────────────────
+  { es:"aprender", pl:"uczyć się", pr:["uczę się","uczysz się","uczy się","uczymy się"], pa:["uczyłem się/uczyłam się","uczyłeś się/uczyłaś się","uczył się/uczyła się"], ep:["aprendo","aprendes","aprende","aprendemos"], ea:["aprendí","aprendiste","aprendió"] },
+  { es:"enseñar", pl:"uczyć", pr:["uczę","uczysz","uczy","uczymy"], pa:["uczyłem/uczyłam","uczyłeś/uczyłaś","uczył/uczyła"], ep:["enseño","enseñas","enseña","enseñamos"], ea:["enseñé","enseñaste","enseñó"] },
+  { es:"estudiar (carrera)", pl:"studiować", pr:["studiuję","studiujesz","studiuje","studiujemy"], pa:["studiowałem/studiowałam","studiowałeś/studiowałaś","studiował/studiowała"], ep:["estudio","estudias","estudia","estudiamos"], ea:["estudié","estudiaste","estudió"] },
+  { es:"contar (números)", pl:"liczyć", pr:["liczę","liczysz","liczy","liczymy"], pa:["liczyłem/liczyłam","liczyłeś/liczyłaś","liczył/liczyła"], ep:["cuento","cuentas","cuenta","contamos"], ea:["conté","contaste","contó"] },
+  { es:"terminar", pl:"kończyć", pr:["kończę","kończysz","kończy","kończymy"], pa:["kończyłem/kończyłam","kończyłeś/kończyłaś","kończył/kończyła"], ep:["termino","terminas","termina","terminamos"], ea:["terminé","terminaste","terminó"] },
+  { es:"empezar", pl:"zaczynać", pr:["zaczynam","zaczynasz","zaczyna","zaczynamy"], pa:["zaczynałem/zaczynałam","zaczynałeś/zaczynałaś","zaczynał/zaczynała"], ep:["empiezo","empiezas","empieza","empezamos"], ea:["empecé","empezaste","empezó"] },
+
+  // ── manipular objetos ─────────────────────────────────────────
+  { es:"tomar / coger", pl:"brać", pr:["biorę","bierzesz","bierze","bierzemy"], pa:["brałem/brałam","brałeś/brałaś","brał/brała"], ep:["tomo","tomas","toma","tomamos"], ea:["tomé","tomaste","tomó"] },
+  { es:"dar", pl:"dawać", pr:["daję","dajesz","daje","dajemy"], pa:["dawałem/dawałam","dawałeś/dawałaś","dawał/dawała"], ep:["doy","das","da","damos"], ea:["di","diste","dio"] },
+  { es:"poner / colocar", pl:"kłaść", pr:["kładę","kładziesz","kładzie","kładziemy"], pa:["kładłem/kładłam","kładłeś/kładłaś","kładł/kładła"], ep:["pongo","pones","pone","ponemos"], ea:["puse","pusiste","puso"] },
+  { es:"cargar / llevar", pl:"nosić", pr:["noszę","nosisz","nosi","nosimy"], pa:["nosiłem/nosiłam","nosiłeś/nosiłaś","nosił/nosiła"], ep:["llevo (puesto)","llevas (puesto)","lleva (puesto)","llevamos (puesto)"], ea:["llevé (puesto)","llevaste (puesto)","llevó (puesto)"] },
+  { es:"llevar (cargando)", pl:"nieść", pr:["niosę","niesiesz","niesie","niesiemy"], pa:["niosłem/niosłam","niosłeś/niosłaś","niósł/niosła"], ep:["cargo","cargas","carga","cargamos"], ea:["cargué","cargaste","cargó"] },
+  { es:"transportar", pl:"wozić", pr:["wożę","wozisz","wozi","wozimy"], pa:["woziłem/woziłam","woziłeś/woziłaś","woził/woziła"], ep:["transporto","transportas","transporta","transportamos"], ea:["transporté","transportaste","transportó"] },
+  { es:"conducir", pl:"prowadzić", pr:["prowadzę","prowadzisz","prowadzi","prowadzimy"], pa:["prowadziłem/prowadziłam","prowadziłeś/prowadziłaś","prowadził/prowadziła"], ep:["conduzco","conduces","conduce","conducimos"], ea:["conduje","condujiste","condujo"] },
+  { es:"buscar", pl:"szukać", pr:["szukam","szukasz","szuka","szukamy"], pa:["szukałem/szukałam","szukałeś/szukałaś","szukał/szukała"], ep:["busco","buscas","busca","buscamos"], ea:["busqué","buscaste","buscó"] },
+  { es:"elegir / escoger", pl:"wybierać", pr:["wybieram","wybierasz","wybiera","wybieramy"], pa:["wybierałem/wybierałam","wybierałeś/wybierałaś","wybierał/wybierała"], ep:["elijo","eliges","elige","elegimos"], ea:["elegí","elegiste","eligió"] },
+  { es:"recoger / coleccionar", pl:"zbierać", pr:["zbieram","zbierasz","zbiera","zbieramy"], pa:["zbierałem/zbierałam","zbierałeś/zbierałaś","zbierał/zbierała"], ep:["recojo","recoges","recoge","recogemos"], ea:["recogí","recogiste","recogió"] },
+  { es:"dejar", pl:"zostawiać", pr:["zostawiam","zostawiasz","zostawia","zostawiamy"], pa:["zostawiałem/zostawiałam","zostawiałeś/zostawiałaś","zostawiał/zostawiała"], ep:["dejo","dejas","deja","dejamos"], ea:["dejé","dejaste","dejó"] },
+  { es:"mostrar / enseñar", pl:"pokazywać", pr:["pokazuję","pokazujesz","pokazuje","pokazujemy"], pa:["pokazywałem/pokazywałam","pokazywałeś/pokazywałaś","pokazywał/pokazywała"], ep:["muestro","muestras","muestra","mostramos"], ea:["mostré","mostraste","mostró"] },
+  { es:"lanzar / tirar", pl:"rzucać", pr:["rzucam","rzucasz","rzuca","rzucamy"], pa:["rzucałem/rzucałam","rzucałeś/rzucałaś","rzucał/rzucała"], ep:["lanzo","lanzas","lanza","lanzamos"], ea:["lancé","lanzaste","lanzó"] },
+  { es:"sostener", pl:"trzymać", pr:["trzymam","trzymasz","trzyma","trzymamy"], pa:["trzymałem/trzymałam","trzymałeś/trzymałaś","trzymał/trzymała"], ep:["sostengo","sostienes","sostiene","sostenemos"], ea:["sostuve","sostuviste","sostuvo"] },
+  { es:"abrir", pl:"otwierać", pr:["otwieram","otwierasz","otwiera","otwieramy"], pa:["otwierałem/otwierałam","otwierałeś/otwierałaś","otwierał/otwierała"], ep:["abro","abres","abre","abrimos"], ea:["abrí","abriste","abrió"] },
+  { es:"cerrar", pl:"zamykać", pr:["zamykam","zamykasz","zamyka","zamykamy"], pa:["zamykałem/zamykałam","zamykałeś/zamykałaś","zamykał/zamykała"], ep:["cierro","cierras","cierra","cerramos"], ea:["cerré","cerraste","cerró"] },
+  { es:"perder (objeto)", pl:"gubić", pr:["gubię","gubisz","gubi","gubimy"], pa:["gubiłem/gubiłam","gubiłeś/gubiłaś","gubił/gubiła"], ep:["pierdo","pierdes","pierde","perdemos"], ea:["perdí","perdiste","perdió"] },
+  { es:"dividir / compartir", pl:"dzielić", pr:["dzielę","dzielisz","dzieli","dzielimy"], pa:["dzieliłem/dzieliłam","dzieliłeś/dzieliłaś","dzielił/dzieliła"], ep:["divido","divides","divide","dividimos"], ea:["dividí","dividiste","dividió"] },
+
+  // ── crear / construir ─────────────────────────────────────────
+  { es:"construir", pl:"budować", pr:["buduję","budujesz","buduje","budujemy"], pa:["budowałem/budowałam","budowałeś/budowałaś","budował/budowała"], ep:["construyo","construyes","construye","construimos"], ea:["construí","construiste","construyó"] },
+  { es:"formar / crear", pl:"tworzyć", pr:["tworzę","tworzysz","tworzy","tworzymy"], pa:["tworzyłem/tworzyłam","tworzyłeś/tworzyłaś","tworzył/tworzyła"], ep:["formo","formas","forma","formamos"], ea:["formé","formaste","formó"] },
+  { es:"pintar", pl:"malować", pr:["maluję","malujesz","maluje","malujemy"], pa:["malowałem/malowałam","malowałeś/malowałaś","malował/malowała"], ep:["pinto","pintas","pinta","pintamos"], ea:["pinté","pintaste","pintó"] },
+  { es:"reparar / arreglar", pl:"naprawiać", pr:["naprawiam","naprawiasz","naprawia","naprawiamy"], pa:["naprawiałem/naprawiałam","naprawiałeś/naprawiałaś","naprawiał/naprawiała"], ep:["reparo","reparas","repara","reparamos"], ea:["reparé","reparaste","reparó"] },
+  { es:"preparar", pl:"przygotowywać", pr:["przygotowuję","przygotowujesz","przygotowuje","przygotowujemy"], pa:["przygotowywałem/przygotowywałam","przygotowywałeś/przygotowywałaś","przygotowywał/przygotowywała"], ep:["preparo","preparas","prepara","preparamos"], ea:["preparé","preparaste","preparó"] },
+  { es:"cambiar", pl:"zmieniać", pr:["zmieniam","zmieniasz","zmienia","zmieniamy"], pa:["zmieniałem/zmieniałam","zmieniałeś/zmieniałaś","zmieniał/zmieniała"], ep:["cambio","cambias","cambia","cambiamos"], ea:["cambié","cambiaste","cambió"] },
+
+  // ── ayuda / sociedad ──────────────────────────────────────────
+  { es:"ayudar", pl:"pomagać", pr:["pomagam","pomagasz","pomaga","pomagamy"], pa:["pomagałem/pomagałam","pomagałeś/pomagałaś","pomagał/pomagała"], ep:["ayudo","ayudas","ayuda","ayudamos"], ea:["ayudé","ayudaste","ayudó"] },
+  { es:"respetar", pl:"szanować", pr:["szanuję","szanujesz","szanuje","szanujemy"], pa:["szanowałem/szanowałam","szanowałeś/szanowałaś","szanował/szanowała"], ep:["respeto","respetas","respeta","respetamos"], ea:["respeté","respetaste","respetó"] },
+  { es:"besar", pl:"całować", pr:["całuję","całujesz","całuje","całujemy"], pa:["całowałem/całowałam","całowałeś/całowałaś","całował/całowała"], ep:["beso","besas","besa","besamos"], ea:["besé","besaste","besó"] },
+  { es:"necesitar", pl:"potrzebować", pr:["potrzebuję","potrzebujesz","potrzebuje","potrzebujemy"], pa:["potrzebowałem/potrzebowałam","potrzebowałeś/potrzebowałaś","potrzebował/potrzebowała"], ep:["necesito","necesitas","necesita","necesitamos"], ea:["necesité","necesitaste","necesitó"] },
+  { es:"intentar / probar", pl:"próbować", pr:["próbuję","próbujesz","próbuje","próbujemy"], pa:["próbowałem/próbowałam","próbowałeś/próbowałaś","próbował/próbowała"], ep:["intento","intentas","intenta","intentamos"], ea:["intenté","intentaste","intentó"] },
+  { es:"decidir", pl:"decydować", pr:["decyduję","decydujesz","decyduje","decydujemy"], pa:["decydowałem/decydowałam","decydowałeś/decydowałaś","decydował/decydowała"], ep:["decido","decides","decide","decidimos"], ea:["decidí","decidiste","decidió"] },
+  { es:"estar de acuerdo", pl:"zgadzać się", pr:["zgadzam się","zgadzasz się","zgadza się","zgadzamy się"], pa:["zgadzałem się/zgadzałam się","zgadzałeś się/zgadzałaś się","zgadzał się/zgadzała się"], ep:["estoy de acuerdo","estás de acuerdo","está de acuerdo","estamos de acuerdo"], ea:["estuve de acuerdo","estuviste de acuerdo","estuvo de acuerdo"] },
+  { es:"comprobar / revisar", pl:"sprawdzać", pr:["sprawdzam","sprawdzasz","sprawdza","sprawdzamy"], pa:["sprawdzałem/sprawdzałam","sprawdzałeś/sprawdzałaś","sprawdzał/sprawdzała"], ep:["compruebo","compruebas","comprueba","comprobamos"], ea:["comprobé","comprobaste","comprobó"] },
+  { es:"organizar", pl:"organizować", pr:["organizuję","organizujesz","organizuje","organizujemy"], pa:["organizowałem/organizowałam","organizowałeś/organizowałaś","organizował/organizowała"], ep:["organizo","organizas","organiza","organizamos"], ea:["organicé","organizaste","organizó"] },
+  { es:"planear", pl:"planować", pr:["planuję","planujesz","planuje","planujemy"], pa:["planowałem/planowałam","planowałeś/planowałaś","planował/planowała"], ep:["planeo","planeas","planea","planeamos"], ea:["planeé","planeaste","planeó"] },
+
+  // ── compras / dinero / viajes ─────────────────────────────────
+  { es:"comprar", pl:"kupować", pr:["kupuję","kupujesz","kupuje","kupujemy"], pa:["kupowałem/kupowałam","kupowałeś/kupowałaś","kupował/kupowała"], ep:["compro","compras","compra","compramos"], ea:["compré","compraste","compró"] },
+  { es:"vender", pl:"sprzedawać", pr:["sprzedaję","sprzedajesz","sprzedaje","sprzedajemy"], pa:["sprzedawałem/sprzedawałam","sprzedawałeś/sprzedawałaś","sprzedawał/sprzedawała"], ep:["vendo","vendes","vende","vendemos"], ea:["vendí","vendiste","vendió"] },
+  { es:"pagar", pl:"płacić", pr:["płacę","płacisz","płaci","płacimy"], pa:["płaciłem/płaciłam","płaciłeś/płaciłaś","płacił/płaciła"], ep:["pago","pagas","paga","pagamos"], ea:["pagué","pagaste","pagó"] },
+  { es:"gastar", pl:"wydawać", pr:["wydaję","wydajesz","wydaje","wydajemy"], pa:["wydawałem/wydawałam","wydawałeś/wydawałaś","wydawał/wydawała"], ep:["gasto","gastas","gasta","gastamos"], ea:["gasté","gastaste","gastó"] },
+  { es:"ganar (dinero)", pl:"zarabiać", pr:["zarabiam","zarabiasz","zarabia","zarabiamy"], pa:["zarabiałem/zarabiałam","zarabiałeś/zarabiałaś","zarabiał/zarabiała"], ep:["gano (dinero)","ganas (dinero)","gana (dinero)","ganamos (dinero)"], ea:["gané (dinero)","ganaste (dinero)","ganó (dinero)"] },
+  { es:"recibir / obtener", pl:"dostawać", pr:["dostaję","dostajesz","dostaje","dostajemy"], pa:["dostawałem/dostawałam","dostawałeś/dostawałaś","dostawał/dostawała"], ep:["recibo","recibes","recibe","recibimos"], ea:["recibí","recibiste","recibió"] },
+  { es:"enviar / mandar", pl:"wysyłać", pr:["wysyłam","wysyłasz","wysyła","wysyłamy"], pa:["wysyłałem/wysyłałam","wysyłałeś/wysyłałaś","wysyłał/wysyłała"], ep:["envío","envías","envía","enviamos"], ea:["envié","enviaste","envió"] },
+  { es:"viajar", pl:"podróżować", pr:["podróżuję","podróżujesz","podróżuje","podróżujemy"], pa:["podróżowałem/podróżowałam","podróżowałeś/podróżowałaś","podróżował/podróżowała"], ep:["viajo","viajas","viaja","viajamos"], ea:["viajé","viajaste","viajó"] },
+  { es:"reservar", pl:"rezerwować", pr:["rezerwuję","rezerwujesz","rezerwuje","rezerwujemy"], pa:["rezerwowałem/rezerwowałam","rezerwowałeś/rezerwowałaś","rezerwował/rezerwowała"], ep:["reservo","reservas","reserva","reservamos"], ea:["reservé","reservaste","reservó"] },
+  { es:"aparcar / estacionar", pl:"parkować", pr:["parkuję","parkujesz","parkuje","parkujemy"], pa:["parkowałem/parkowałam","parkowałeś/parkowałaś","parkował/parkowała"], ep:["aparco","aparcas","aparca","aparcamos"], ea:["aparqué","aparcaste","aparcó"] },
+  { es:"empacar", pl:"pakować", pr:["pakuję","pakujesz","pakuje","pakujemy"], pa:["pakowałem/pakowałam","pakowałeś/pakowałaś","pakował/pakowała"], ep:["empaco","empacas","empaca","empacamos"], ea:["empaqué","empacaste","empacó"] },
+  { es:"alquilar", pl:"wynajmować", pr:["wynajmuję","wynajmujesz","wynajmuje","wynajmujemy"], pa:["wynajmowałem/wynajmowałam","wynajmowałeś/wynajmowałaś","wynajmował/wynajmowała"], ep:["alquilo","alquilas","alquila","alquilamos"], ea:["alquilé","alquilaste","alquiló"] },
+  { es:"visitar (turismo)", pl:"zwiedzać", pr:["zwiedzam","zwiedzasz","zwiedza","zwiedzamy"], pa:["zwiedzałem/zwiedzałam","zwiedzałeś/zwiedzałaś","zwiedzał/zwiedzała"], ep:["visito","visitas","visita","visitamos"], ea:["visité","visitaste","visitó"] },
+  { es:"esperar / aguardar", pl:"czekać", pr:["czekam","czekasz","czeka","czekamy"], pa:["czekałem/czekałam","czekałeś/czekałaś","czekał/czekała"], ep:["espero","esperas","espera","esperamos"], ea:["esperé","esperaste","esperó"] },
+  { es:"conocer / saber de", pl:"znać", pr:["znam","znasz","zna","znamy"], pa:["znałem/znałam","znałeś/znałaś","znał/znała"], ep:["conozco","conoces","conoce","conocemos"], ea:["conocí","conociste","conoció"] },
+  { es:"encontrarse con", pl:"spotykać", pr:["spotykam","spotykasz","spotyka","spotykamy"], pa:["spotykałem/spotykałam","spotykałeś/spotykałaś","spotykał/spotykała"], ep:["me encuentro","te encuentras","se encuentra","nos encontramos"], ea:["me encontré","te encontraste","se encontró"] },
+  { es:"parecer / verse", pl:"wyglądać", pr:["wyglądam","wyglądasz","wygląda","wyglądamy"], pa:["wyglądałem/wyglądałam","wyglądałeś/wyglądałaś","wyglądał/wyglądała"], ep:["parezco","pareces","parece","parecemos"], ea:["parecí","pareciste","pareció"] },
+  { es:"pasar (tiempo)", pl:"spędzać", pr:["spędzam","spędzasz","spędza","spędzamy"], pa:["spędzałem/spędzałam","spędzałeś/spędzałaś","spędzał/spędzała"], ep:["paso (tiempo)","pasas (tiempo)","pasa (tiempo)","pasamos (tiempo)"], ea:["pasé (tiempo)","pasaste (tiempo)","pasó (tiempo)"] },
+  { es:"aprovechar", pl:"korzystać", pr:["korzystam","korzystasz","korzysta","korzystamy"], pa:["korzystałem/korzystałam","korzystałeś/korzystałaś","korzystał/korzystała"], ep:["aprovecho","aprovechas","aprovecha","aprovechamos"], ea:["aproveché","aprovechaste","aprovechó"] },
+  { es:"usar / utilizar", pl:"używać", pr:["używam","używasz","używa","używamy"], pa:["używałem/używałam","używałeś/używałaś","używał/używała"], ep:["uso","usas","usa","usamos"], ea:["usé","usaste","usó"] },
+  { es:"estar de pie", pl:"stać", pr:["stoję","stoisz","stoi","stoimy"], pa:["stałem/stałam","stałeś/stałaś","stał/stała"], ep:["estoy de pie","estás de pie","está de pie","estamos de pie"], ea:["estuve de pie","estuviste de pie","estuvo de pie"] },
+  { es:"estar sentado", pl:"siedzieć", pr:["siedzę","siedzisz","siedzi","siedzimy"], pa:["siedziałem/siedziałam","siedziałeś/siedziałaś","siedział/siedziała"], ep:["estoy sentado","estás sentado","está sentado","estamos sentados"], ea:["estuve sentado","estuviste sentado","estuvo sentado"] },
+  { es:"estar tumbado", pl:"leżeć", pr:["leżę","leżysz","leży","leżymy"], pa:["leżałem/leżałam","leżałeś/leżałaś","leżał/leżała"], ep:["estoy tumbado","estás tumbado","está tumbado","estamos tumbados"], ea:["estuve tumbado","estuviste tumbado","estuvo tumbado"] },
+];
+
+// ── Expand the verb tables into individual matchable cards ─────────
+//  Each card is tagged with its grammatical "form" (person + tense) so
+//  conjugations can be grouped into SAME-FORM families. That way a round
+//  shows e.g. "yo como / yo juego / yo duermo" together.
+VERBS.forEach(v => {
+  WORDS.push({ es:"yo "       + v.ep[0], pl:"ja "     + v.pr[0], conj:true, tag:"pres.", form:"pr0" });
+  WORDS.push({ es:"tú "       + v.ep[1], pl:"ty "     + v.pr[1], conj:true, tag:"pres.", form:"pr1" });
+  WORDS.push({ es:"él/ella "  + v.ep[2], pl:"on/ona " + v.pr[2], conj:true, tag:"pres.", form:"pr2" });
+  WORDS.push({ es:"nosotros " + v.ep[3], pl:"my "     + v.pr[3], conj:true, tag:"pres.", form:"pr3" });
+  WORDS.push({ es:"yo "      + v.ea[0] + " (pas.)", pl:"ja "     + v.pa[0], conj:true, tag:"pas.", form:"pa0" });
+  WORDS.push({ es:"tú "      + v.ea[1] + " (pas.)", pl:"ty "     + v.pa[1], conj:true, tag:"pas.", form:"pa1" });
+  WORDS.push({ es:"él/ella " + v.ea[2] + " (pas.)", pl:"on/ona " + v.pa[2], conj:true, tag:"pas.", form:"pa2" });
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  v2 ── ADVANCED CONTENT DECKS  (B1–B2)
+//  Each deck is a flat list of {es, pl} pairs. Grammar decks also carry
+//  a `form` (for same-family grouping) and a short `tag` (badge label).
+// ══════════════════════════════════════════════════════════════════
+
+// ── B1–B2 VOCABULARY ──────────────────────────────────────────────
+//  Abstract nouns, society/work, opinion & media, health/environment,
+//  higher-level adjectives and discourse connectors.
+const VOCAB_B12 = [
+  // abstractos / mente / emociones
+  { es:"experiencia",                 pl:"doświadczenie" },
+  { es:"conocimiento / saber",        pl:"wiedza" },
+  { es:"recuerdo",                    pl:"wspomnienie" },
+  { es:"pensamiento / idea",          pl:"myśl" },
+  { es:"sentimiento",                 pl:"uczucie" },
+  { es:"estado de ánimo / humor",     pl:"nastrój" },
+  { es:"comportamiento / conducta",   pl:"zachowanie" },
+  { es:"costumbre / hábito",          pl:"nawyk" },
+  { es:"decisión",                    pl:"decyzja" },
+  { es:"elección / opción",           pl:"wybór" },
+  { es:"oportunidad / ocasión",       pl:"okazja" },
+  { es:"posibilidad",                 pl:"możliwość" },
+  { es:"ventaja",                     pl:"zaleta" },
+  { es:"desventaja / defecto",        pl:"wada" },
+  { es:"razón / motivo",              pl:"powód" },
+  { es:"causa",                       pl:"przyczyna" },
+  { es:"consecuencia / efecto",       pl:"skutek" },
+  { es:"objetivo / meta",             pl:"cel" },
+  { es:"significado / sentido",       pl:"znaczenie" },
+  { es:"diferencia",                  pl:"różnica" },
+  { es:"semejanza / parecido",        pl:"podobieństwo" },
+  { es:"relación / vínculo",          pl:"związek" },
+  { es:"confianza",                   pl:"zaufanie" },
+  { es:"responsabilidad",             pl:"odpowiedzialność" },
+  { es:"libertad",                    pl:"wolność" },
+  { es:"igualdad",                    pl:"równość" },
+  { es:"justicia",                    pl:"sprawiedliwość" },
+  { es:"influencia",                  pl:"wpływ" },
+  { es:"éxito",                       pl:"sukces" },
+  { es:"fracaso",                     pl:"porażka" },
+  { es:"esfuerzo",                    pl:"wysiłek" },
+  { es:"desarrollo",                  pl:"rozwój" },
+  { es:"crecimiento / aumento",       pl:"wzrost" },
+  { es:"nivel",                       pl:"poziom" },
+  { es:"valor",                       pl:"wartość" },
+  { es:"calidad",                     pl:"jakość" },
+  { es:"cantidad",                    pl:"ilość" },
+  { es:"duda",                        pl:"wątpliwość" },
+  { es:"miedo / temor",               pl:"strach" },
+  { es:"esperanza",                   pl:"nadzieja" },
+
+  // sociedad / trabajo / economía
+  { es:"sociedad",                    pl:"społeczeństwo" },
+  { es:"gobierno",                    pl:"rząd" },
+  { es:"ley",                         pl:"prawo" },
+  { es:"ciudadano",                   pl:"obywatel" },
+  { es:"elecciones (votación)",       pl:"wybory" },
+  { es:"política",                    pl:"polityka" },
+  { es:"economía",                    pl:"gospodarka" },
+  { es:"empresa / firma",             pl:"firma" },
+  { es:"empleo / trabajo",            pl:"zatrudnienie" },
+  { es:"desempleo / paro",            pl:"bezrobocie" },
+  { es:"sueldo / salario",            pl:"wynagrodzenie" },
+  { es:"impuesto",                    pl:"podatek" },
+  { es:"presupuesto",                 pl:"budżet" },
+  { es:"inversión",                   pl:"inwestycja" },
+  { es:"ganancia / beneficio",        pl:"zysk" },
+  { es:"pérdida",                     pl:"strata" },
+  { es:"deuda",                       pl:"dług" },
+  { es:"mercado",                     pl:"rynek" },
+  { es:"cliente",                     pl:"klient" },
+  { es:"jefe",                        pl:"szef" },
+  { es:"empleado / trabajador",       pl:"pracownik" },
+  { es:"reunión (de trabajo)",        pl:"spotkanie" },
+  { es:"plazo / fecha límite",        pl:"termin" },
+  { es:"entrevista de trabajo",       pl:"rozmowa kwalifikacyjna" },
+  { es:"contrato / acuerdo",          pl:"umowa" },
+  { es:"competencia (rivalidad)",     pl:"konkurencja" },
+  { es:"publicidad / anuncio",        pl:"reklama" },
+
+  // ciencia / medios / tecnología
+  { es:"investigación / estudio",     pl:"badanie" },
+  { es:"ciencia",                     pl:"nauka" },
+  { es:"descubrimiento",              pl:"odkrycie" },
+  { es:"invento",                     pl:"wynalazek" },
+  { es:"noticias",                    pl:"wiadomości" },
+  { es:"prensa",                      pl:"prasa" },
+  { es:"artículo",                    pl:"artykuł" },
+  { es:"opinión / parecer",           pl:"opinia" },
+  { es:"punto de vista",              pl:"punkt widzenia" },
+  { es:"argumento",                   pl:"argument" },
+  { es:"prueba / evidencia",          pl:"dowód" },
+  { es:"ejemplo",                     pl:"przykład" },
+  { es:"resumen",                     pl:"streszczenie" },
+  { es:"conclusión",                  pl:"wniosek" },
+  { es:"ordenador / computadora",     pl:"komputer" },
+  { es:"red (internet)",              pl:"sieć" },
+  { es:"usuario",                     pl:"użytkownik" },
+  { es:"contraseña",                  pl:"hasło" },
+  { es:"archivo (informático)",       pl:"plik" },
+  { es:"pantalla",                    pl:"ekran" },
+
+  // salud / medio ambiente
+  { es:"salud",                       pl:"zdrowie" },
+  { es:"enfermedad",                  pl:"choroba" },
+  { es:"tratamiento (médico)",        pl:"leczenie" },
+  { es:"medicamento / fármaco",       pl:"lek" },
+  { es:"dolor",                       pl:"ból" },
+  { es:"medio ambiente",              pl:"środowisko" },
+  { es:"naturaleza",                  pl:"przyroda" },
+  { es:"contaminación",               pl:"zanieczyszczenie" },
+  { es:"cambio climático",            pl:"zmiana klimatu" },
+  { es:"basura / residuos",           pl:"śmieci" },
+  { es:"energía",                     pl:"energia" },
+  { es:"recurso",                     pl:"zasób" },
+
+  // adjetivos B1–B2
+  { es:"complicado",                  pl:"skomplikowany" },
+  { es:"sencillo / simple",           pl:"prosty" },
+  { es:"necesario",                   pl:"konieczny" },
+  { es:"posible",                     pl:"możliwy" },
+  { es:"imposible",                   pl:"niemożliwy" },
+  { es:"útil",                        pl:"przydatny" },
+  { es:"inútil",                      pl:"bezużyteczny" },
+  { es:"peligroso",                   pl:"niebezpieczny" },
+  { es:"seguro / a salvo",            pl:"bezpieczny" },
+  { es:"responsable",                 pl:"odpowiedzialny" },
+  { es:"frecuente",                   pl:"częsty" },
+  { es:"raro / poco común",           pl:"rzadki" },
+  { es:"suficiente",                  pl:"wystarczający" },
+  { es:"evidente / obvio",            pl:"oczywisty" },
+  { es:"profundo",                    pl:"głęboki" },
+  { es:"exacto / preciso",            pl:"dokładny" },
+  { es:"general",                     pl:"ogólny" },
+  { es:"actual / vigente",            pl:"obecny" },
+  { es:"conocido / famoso",           pl:"znany" },
+  { es:"desconocido",                 pl:"nieznany" },
+  { es:"orgulloso",                   pl:"dumny" },
+  { es:"capaz",                       pl:"zdolny" },
+
+  // conectores y adverbios de nivel
+  { es:"sin embargo",                 pl:"jednak" },
+  { es:"por lo tanto / por eso",      pl:"dlatego" },
+  { es:"además / es más",             pl:"ponadto" },
+  { es:"en realidad / de hecho",      pl:"właściwie" },
+  { es:"por supuesto",                pl:"oczywiście" },
+  { es:"a pesar de / pese a",         pl:"pomimo" },
+  { es:"mientras tanto",              pl:"tymczasem" },
+  { es:"en cambio / en cambio sí",    pl:"natomiast" },
+  { es:"sobre todo / ante todo",      pl:"przede wszystkim" },
+  { es:"al menos / por lo menos",     pl:"przynajmniej" },
+  { es:"de repente",                  pl:"nagle" },
+  { es:"por desgracia",               pl:"niestety" },
+  { es:"afortunadamente",             pl:"na szczęście" },
+  { es:"de todos modos / igualmente", pl:"i tak" },
+  { es:"quizás / tal vez",            pl:"być może" },
+  { es:"casi",                        pl:"prawie" },
+  { es:"apenas",                      pl:"ledwo" },
+];
+
+// ── ADVANCED TENSES & MOODS ───────────────────────────────────────
+//  Polish future (imperfective compound + perfective simple), conditional
+//  and imperative. Hand-curated so every form is correct.
+const TENSES = [
+  // FUTURO imperfectivo (compuesto: "będę" + infinitivo) — acción en curso/repetida
+  { es:"yo haré (proceso)",        pl:"będę robić",       conj:true, tag:"futuro", form:"futi0" },
+  { es:"tú harás (proceso)",       pl:"będziesz robić",   conj:true, tag:"futuro", form:"futi1" },
+  { es:"él/ella hará (proceso)",   pl:"będzie robić",     conj:true, tag:"futuro", form:"futi2" },
+  { es:"yo hablaré",               pl:"będę mówić",       conj:true, tag:"futuro", form:"futi0" },
+  { es:"tú hablarás",              pl:"będziesz mówić",   conj:true, tag:"futuro", form:"futi1" },
+  { es:"él/ella hablará",          pl:"będzie mówić",     conj:true, tag:"futuro", form:"futi2" },
+  { es:"yo trabajaré",             pl:"będę pracować",    conj:true, tag:"futuro", form:"futi0" },
+  { es:"tú trabajarás",            pl:"będziesz pracować",conj:true, tag:"futuro", form:"futi1" },
+  { es:"él/ella trabajará",        pl:"będzie pracować",  conj:true, tag:"futuro", form:"futi2" },
+  { es:"yo leeré",                 pl:"będę czytać",      conj:true, tag:"futuro", form:"futi0" },
+  { es:"tú leerás",                pl:"będziesz czytać",  conj:true, tag:"futuro", form:"futi1" },
+  { es:"él/ella vivirá",           pl:"będzie żyć",       conj:true, tag:"futuro", form:"futi2" },
+
+  // FUTURO perfectivo (forma simple = significado futuro) — acción terminada
+  { es:"yo haré (acabaré)",        pl:"zrobię",   conj:true, tag:"fut. perf.", form:"futp0" },
+  { es:"tú harás (acabarás)",      pl:"zrobisz",  conj:true, tag:"fut. perf.", form:"futp1" },
+  { es:"él/ella hará (acabará)",   pl:"zrobi",    conj:true, tag:"fut. perf.", form:"futp2" },
+  { es:"yo diré",                  pl:"powiem",   conj:true, tag:"fut. perf.", form:"futp0" },
+  { es:"tú dirás",                 pl:"powiesz",  conj:true, tag:"fut. perf.", form:"futp1" },
+  { es:"él/ella dirá",             pl:"powie",    conj:true, tag:"fut. perf.", form:"futp2" },
+  { es:"yo compraré",              pl:"kupię",    conj:true, tag:"fut. perf.", form:"futp0" },
+  { es:"tú comprarás",             pl:"kupisz",   conj:true, tag:"fut. perf.", form:"futp1" },
+  { es:"él/ella comprará",         pl:"kupi",     conj:true, tag:"fut. perf.", form:"futp2" },
+  { es:"yo escribiré",             pl:"napiszę",  conj:true, tag:"fut. perf.", form:"futp0" },
+  { es:"tú verás",                 pl:"zobaczysz",conj:true, tag:"fut. perf.", form:"futp1" },
+  { es:"él/ella volverá",          pl:"wróci",    conj:true, tag:"fut. perf.", form:"futp2" },
+
+  // CONDICIONAL (-bym / -byś / -by), forma masculina
+  { es:"yo querría",               pl:"chciałbym",  conj:true, tag:"condic.", form:"cond0" },
+  { es:"tú querrías",              pl:"chciałbyś",  conj:true, tag:"condic.", form:"cond1" },
+  { es:"él querría",               pl:"chciałby",   conj:true, tag:"condic.", form:"cond2" },
+  { es:"yo podría",                pl:"mógłbym",    conj:true, tag:"condic.", form:"cond0" },
+  { es:"tú podrías",               pl:"mógłbyś",    conj:true, tag:"condic.", form:"cond1" },
+  { es:"él podría",                pl:"mógłby",     conj:true, tag:"condic.", form:"cond2" },
+  { es:"yo sería / estaría",       pl:"byłbym",     conj:true, tag:"condic.", form:"cond0" },
+  { es:"tú serías / estarías",     pl:"byłbyś",     conj:true, tag:"condic.", form:"cond1" },
+  { es:"él sería / estaría",       pl:"byłby",      conj:true, tag:"condic.", form:"cond2" },
+  { es:"yo tendría",               pl:"miałbym",    conj:true, tag:"condic.", form:"cond0" },
+  { es:"yo haría",                 pl:"robiłbym",   conj:true, tag:"condic.", form:"cond0" },
+  { es:"tú preferirías",           pl:"wolałbyś",   conj:true, tag:"condic.", form:"cond1" },
+  { es:"él tendría que",           pl:"musiałby",   conj:true, tag:"condic.", form:"cond2" },
+
+  // IMPERATIVO — tú (2ª sg) y vosotros (2ª pl)
+  { es:"¡haz!",                    pl:"rób!",      conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡haced!",                  pl:"róbcie!",   conj:true, tag:"imperat.", form:"impv" },
+  { es:"¡habla!",                  pl:"mów!",      conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡hablad!",                 pl:"mówcie!",   conj:true, tag:"imperat.", form:"impv" },
+  { es:"¡escribe!",                pl:"pisz!",     conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡lee!",                    pl:"czytaj!",   conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡escucha!",                pl:"słuchaj!",  conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡mira!",                   pl:"patrz!",    conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡ve! (a pie)",             pl:"idź!",      conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡espera!",                 pl:"czekaj!",   conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡da!",                     pl:"daj!",      conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡ayuda!",                  pl:"pomóż!",    conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡come!",                   pl:"jedz!",     conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡sé! (ser)",               pl:"bądź!",     conj:true, tag:"imperat.", form:"impt" },
+  { es:"¡escuchad!",               pl:"słuchajcie!",conj:true,tag:"imperat.", form:"impv" },
+  { es:"¡esperad!",                pl:"czekajcie!",conj:true, tag:"imperat.", form:"impv" },
+];
+
+// ── NOUN CASES (declension drills) ────────────────────────────────
+//  The big hurdle in Polish. Each card shows a noun *in context* so the
+//  case is triggered naturally; the `tag` names the case.
+const CASES = [
+  // DOPEŁNIACZ — genitivo (no hay…, de, sin, cantidades)
+  { es:"no hay pan",                pl:"nie ma chleba",       conj:true, tag:"Gen.", form:"gen" },
+  { es:"una taza de café",          pl:"filiżanka kawy",      conj:true, tag:"Gen.", form:"gen" },
+  { es:"sin dinero",                pl:"bez pieniędzy",       conj:true, tag:"Gen.", form:"gen" },
+  { es:"el coche de mi hermano",    pl:"samochód brata",      conj:true, tag:"Gen.", form:"gen" },
+  { es:"un vaso de agua",           pl:"szklanka wody",       conj:true, tag:"Gen.", form:"gen" },
+
+  // BIERNIK — acusativo (objeto directo)
+  { es:"veo a la mujer",            pl:"widzę kobietę",       conj:true, tag:"Acus.", form:"acc" },
+  { es:"tengo un perro",            pl:"mam psa",             conj:true, tag:"Acus.", form:"acc" },
+  { es:"leo un libro",              pl:"czytam książkę",      conj:true, tag:"Acus.", form:"acc" },
+  { es:"conozco a la niña",         pl:"znam dziewczynę",     conj:true, tag:"Acus.", form:"acc" },
+
+  // CELOWNIK — dativo (a/para alguien)
+  { es:"doy al amigo",              pl:"daję przyjacielowi",  conj:true, tag:"Dat.", form:"dat" },
+  { es:"ayudo a mamá",              pl:"pomagam mamie",       conj:true, tag:"Dat.", form:"dat" },
+  { es:"digo al niño",              pl:"mówię dziecku",       conj:true, tag:"Dat.", form:"dat" },
+  { es:"me gusta (a mí)",           pl:"podoba mi się",       conj:true, tag:"Dat.", form:"dat" },
+
+  // NARZĘDNIK — instrumental (con, en/medio, ser + profesión)
+  { es:"con un amigo",              pl:"z przyjacielem",      conj:true, tag:"Instr.", form:"inst" },
+  { es:"soy profesor",              pl:"jestem nauczycielem", conj:true, tag:"Instr.", form:"inst" },
+  { es:"voy en autobús",            pl:"jadę autobusem",      conj:true, tag:"Instr.", form:"inst" },
+  { es:"escribo con bolígrafo",     pl:"piszę długopisem",    conj:true, tag:"Instr.", form:"inst" },
+  { es:"con mi hermana",            pl:"z siostrą",           conj:true, tag:"Instr.", form:"inst" },
+
+  // MIEJSCOWNIK — locativo (en, sobre/acerca de — siempre con preposición)
+  { es:"en Polonia",                pl:"w Polsce",            conj:true, tag:"Locat.", form:"loc" },
+  { es:"en la ciudad",              pl:"w mieście",           conj:true, tag:"Locat.", form:"loc" },
+  { es:"sobre el amor",             pl:"o miłości",           conj:true, tag:"Locat.", form:"loc" },
+  { es:"en la escuela",             pl:"w szkole",            conj:true, tag:"Locat.", form:"loc" },
+  { es:"hablo de mi trabajo",       pl:"mówię o pracy",       conj:true, tag:"Locat.", form:"loc" },
+
+  // WOŁACZ — vocativo (al dirigirse a alguien)
+  { es:"¡Dios! (invocando)",        pl:"Boże!",               conj:true, tag:"Vocat.", form:"voc" },
+  { es:"¡mamá! (llamándola)",       pl:"mamo!",               conj:true, tag:"Vocat.", form:"voc" },
+  { es:"¡amigo! (dirigiéndose)",    pl:"przyjacielu!",        conj:true, tag:"Vocat.", form:"voc" },
+  { es:"¡hijo! (dirigiéndose)",     pl:"synu!",               conj:true, tag:"Vocat.", form:"voc" },
+];
+
+// ══════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════════════════════════════
+const ROUND_SIZE   = 8;     // pairs shown per round
+const SESSION_SIZE = 48;    // tracked pairs per game (larger decks are sampled)
+const RETRY_DELAY  = 2;     // a missed pair returns ~2 rounds later
+
+// ── Content decks: WHAT the player practises ──────────────────────
+const DECKS = {
+  b12:     { label:'Vocabulario B1–B2',          icon:'🎓', desc:'Léxico avanzado: abstracto, trabajo, opinión',  pool:()=>VOCAB_B12 },
+  casos:   { label:'Casos (declinación)',        icon:'🧩', desc:'Los 7 casos polacos en contexto', grammar:true, pool:()=>CASES },
+  tiempos: { label:'Tiempos avanzados',          icon:'⏳', desc:'Futuro · condicional · imperativo', grammar:true, pool:()=>TENSES },
+  verbos:  { label:'Verbos: presente y pasado',  icon:'🔤', desc:'Conjugaciones básicas',           grammar:true, pool:()=>WORDS.filter(w=>w.conj) },
+  basico:  { label:'Vocabulario básico',         icon:'📘', desc:'~700 palabras del día a día',                   pool:()=>WORDS.filter(w=>!w.conj) },
+  todo:    { label:'Todo mezclado',              icon:'🎲', desc:'Un poco de todo lo anterior',                   pool:()=>[...VOCAB_B12, ...CASES, ...TENSES, ...WORDS] },
+};
+
+// ── Modes: HOW they practise ──────────────────────────────────────
+const MODES = {
+  match:  { label:'Emparejar',       icon:'🔗', desc:'Une las dos columnas' },
+  choice: { label:'Opción múltiple', icon:'🔢', desc:'Elige entre 4 respuestas' },
+  type:   { label:'Escribir',        icon:'⌨️', desc:'Teclea la traducción (recuerdo activo)' },
+};
+
+// ══════════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════════
+let S = {
+  deck:        'b12',     // chosen content deck
+  gameMode:    'match',   // match | choice | type
+  dir:         'es-pl',   // prompt direction
+
+  rounds:      [],        // pre-built rounds (each = array of pair objects)
+  retryQueue:  [],        // [{pair, dueRound}] — missed pairs waiting to return
+  doneSet:     new Set(), // pairs mastered (unique)
+  sessionTotal:0,         // how many distinct pairs this game tracks
+  round:       0,
+  score:       0,
+  totalMatched:0,
+  totalMissed: 0,
+
+  roundPairs:  [],        // pair objects in the current round
+  roundOk:     0,         // resolved-correct this round
+  roundBad:    0,         // resolved-wrong this round
+
+  // matching only
+  selLeft:     null,
+  selRight:    null,
+  isAnimating: false,
+
+  // choice / type (sequential) only
+  seqIdx:      0,
+};
+
+// Selection state for the menu
+let MENU = { deck:'b12', mode:'match', dir:'es-pl' };
+
+// ══════════════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════════════
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MENU  — choose deck + mode + direction
+// ══════════════════════════════════════════════════════════════════
+function buildMenu() {
+  const dg = document.getElementById('deck-grid');
+  dg.innerHTML = '';
+  Object.entries(DECKS).forEach(([id, d]) => {
+    const el = document.createElement('button');
+    el.className = 'pick-card' + (MENU.deck === id ? ' sel' : '');
+    el.innerHTML = `<span class="pick-ic">${d.icon}</span>
+      <span class="pick-tt">${d.label}</span>
+      <span class="pick-ds">${d.desc}</span>`;
+    el.onclick = () => selectDeck(id);
+    dg.appendChild(el);
+  });
+
+  const mg = document.getElementById('mode-grid');
+  mg.innerHTML = '';
+  Object.entries(MODES).forEach(([id, m]) => {
+    const el = document.createElement('button');
+    el.className = 'pick-card' + (MENU.mode === id ? ' sel' : '');
+    el.innerHTML = `<span class="pick-ic">${m.icon}</span>
+      <span class="pick-tt">${m.label}</span>
+      <span class="pick-ds">${m.desc}</span>`;
+    el.onclick = () => selectMode(id);
+    mg.appendChild(el);
+  });
+
+  document.getElementById('dir-es-pl').classList.toggle('active', MENU.dir === 'es-pl');
+  document.getElementById('dir-pl-es').classList.toggle('active', MENU.dir === 'pl-es');
+}
+function selectDeck(id) { MENU.deck = id; buildMenu(); }
+function selectMode(id) { MENU.mode = id; buildMenu(); }
+function setDir(d)      { MENU.dir  = d;  buildMenu(); }
+
+function showMenu() {
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('menu').style.display = 'block';
+  document.getElementById('game-complete').classList.remove('visible');
+  document.getElementById('round-complete').classList.remove('visible');
+  buildMenu();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  START GAME  — from the menu selections
+// ══════════════════════════════════════════════════════════════════
+function startGame() {
+  S.deck = MENU.deck; S.gameMode = MENU.mode; S.dir = MENU.dir;
+  buildSession();
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('game-deck-name').textContent = DECKS[S.deck].icon + ' ' + DECKS[S.deck].label;
+  document.getElementById('game-mode-name').textContent = MODES[S.gameMode].icon + ' ' + MODES[S.gameMode].label;
+  loadRound();
+}
+
+// Order a grammar deck so same-form families stay adjacent (one case/tense per
+// stretch), but shuffle which families appear first for variety.
+function orderGrammar(pool) {
+  const groups = {};
+  pool.forEach(p => { const f = p.form || '_'; (groups[f] = groups[f] || []).push(p); });
+  let out = [];
+  shuffle(Object.keys(groups)).forEach(f => { out = out.concat(shuffle(groups[f])); });
+  return out;
+}
+
+function buildSession() {
+  const deck = DECKS[S.deck];
+  // de-dup (the "todo" deck overlaps other decks)
+  const seen = new Set();
+  let pool = deck.pool().filter(p => {
+    const k = p.es + '|' + p.pl;
+    if (seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+
+  pool = deck.grammar ? orderGrammar(pool) : shuffle(pool);
+  if (pool.length > SESSION_SIZE) pool = pool.slice(0, SESSION_SIZE);
+
+  S.sessionTotal = pool.length;
+  S.rounds = [];
+  for (let i = 0; i < pool.length; i += ROUND_SIZE) S.rounds.push(pool.slice(i, i + ROUND_SIZE));
+
+  S.retryQueue   = [];
+  S.doneSet      = new Set();
+  S.round        = 0;
+  S.score        = 0;
+  S.totalMatched = 0;
+  S.totalMissed  = 0;
+  S.isAnimating  = false;
+
+  document.getElementById('game-complete').classList.remove('visible');
+  document.getElementById('round-complete').classList.remove('visible');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ASSEMBLE ROUND  — due retries first, then the next pre-built round
+// ══════════════════════════════════════════════════════════════════
+function assembleRound() {
+  let due = S.retryQueue.filter(r => r.dueRound <= S.round);
+
+  // All rounds played but retries still cooling down → jump to when they're due
+  if (due.length === 0 && S.rounds.length === 0 && S.retryQueue.length > 0) {
+    S.round = Math.min(...S.retryQueue.map(r => r.dueRound));
+    due = S.retryQueue.filter(r => r.dueRound <= S.round);
+  }
+
+  if (due.length > 0) {
+    const used    = due.slice(0, ROUND_SIZE);
+    const usedSet = new Set(used);
+    S.retryQueue  = S.retryQueue.filter(r => !usedSet.has(r));
+    return used.map(r => r.pair);
+  }
+  if (S.rounds.length > 0) return S.rounds.shift();
+  return [];
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SCORING HELPERS  (shared by all three modes)
+// ══════════════════════════════════════════════════════════════════
+function markCorrect(pair) {
+  S.score += 10;
+  S.roundOk++;
+  if (!S.doneSet.has(pair)) { S.doneSet.add(pair); S.totalMatched++; }
+}
+function markMissed(pair) {
+  S.roundBad++;
+  S.totalMissed++;
+  S.retryQueue.push({ pair, dueRound: S.round + RETRY_DELAY });
+}
+
+// Direction-aware text helpers
+function srcText(p) { return S.dir === 'es-pl' ? p.es : p.pl; }
+function dstText(p) { return S.dir === 'es-pl' ? p.pl : p.es; }
+function srcLang()  { return S.dir === 'es-pl' ? 'es' : 'pl'; }
+function dstLang()  { return S.dir === 'es-pl' ? 'pl' : 'es'; }
+function tagOf(p)   { return p.tag || (p.conj ? 'conj' : ''); }
+
+function showArea(which) {
+  document.getElementById('columns').style.display  = which === 'match'  ? 'grid'  : 'none';
+  document.getElementById('mc-area').style.display  = which === 'choice' ? 'block' : 'none';
+  document.getElementById('type-area').style.display= which === 'type'   ? 'block' : 'none';
+  document.getElementById('match-legend').style.display = which === 'match' ? 'flex' : 'none';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  LOAD ROUND  — dispatch to the active mode renderer
+// ══════════════════════════════════════════════════════════════════
+function loadRound() {
+  S.roundOk = 0; S.roundBad = 0;
+  S.selLeft = null; S.selRight = null; S.isAnimating = false; S.seqIdx = 0;
+
+  const pairs = assembleRound();
+  if (pairs.length === 0) { showFinal(); return; }
+  S.roundPairs = pairs;
+
+  document.getElementById('round-complete').classList.remove('visible');
+  setRoundLabel();
+
+  if      (S.gameMode === 'match')  renderMatch();
+  else if (S.gameMode === 'choice') renderChoice();
+  else                              renderType();
+
+  updateStats();
+}
+
+function setRoundLabel() {
+  const retry = S.retryQueue.length;
+  let info = `Ronda ${S.round + 1} · ${S.doneSet.size}/${S.sessionTotal} dominadas`;
+  if (retry > 0) info += ` · 🔄 ${retry} en cola`;
+  document.getElementById('round-label').textContent = info;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MODE 1 · MATCHING  (two columns)
+// ══════════════════════════════════════════════════════════════════
+function renderMatch() {
+  showArea('match');
+  const isEsPl = S.dir === 'es-pl';
+  document.getElementById('left-header').textContent  = isEsPl ? 'Español' : 'Polaco';
+  document.getElementById('right-header').textContent = isEsPl ? 'Polaco'  : 'Español';
+
+  const left  = S.roundPairs.map((p, i) => ({ text: srcText(p), idx: i, tag: tagOf(p), lang: srcLang() }));
+  const right = shuffle(S.roundPairs.map((p, i) => ({ text: dstText(p), idx: i, tag: tagOf(p), lang: dstLang() })));
+  renderCol('left-col',  left,  'left');
+  renderCol('right-col', right, 'right');
+}
+
+function renderCol(colId, items, side) {
+  const col = document.getElementById(colId);
+  col.innerHTML = '';
+  items.forEach(item => {
+    const card        = document.createElement('div');
+    card.className    = 'word-card' + (item.tag ? ' conj' : '');
+    if (item.tag) card.dataset.tag = item.tag;
+    card.textContent  = item.text;
+    card.dataset.idx  = item.idx;
+    card.dataset.side = side;
+    card.dataset.lang = item.lang;
+    card.addEventListener('click', () => handleClick(card));
+    col.appendChild(card);
+  });
+}
+
+function handleClick(card) {
+  speakCard(card);   // pronounce on every click (even completed cards, for review)
+
+  if (card.classList.contains('matched') ||
+      card.classList.contains('missed')  ||
+      card.classList.contains('revealing')) return;
+  if (S.isAnimating) return;
+
+  const side = card.dataset.side;
+  if (side === 'left') {
+    if (S.selLeft) {
+      if (S.selLeft === card) { S.selLeft.classList.remove('selected'); S.selLeft = null; return; }
+      S.selLeft.classList.remove('selected');
+    }
+    S.selLeft = card; card.classList.add('selected');
+  } else {
+    if (S.selRight) {
+      if (S.selRight === card) { S.selRight.classList.remove('selected'); S.selRight = null; return; }
+      S.selRight.classList.remove('selected');
+    }
+    S.selRight = card; card.classList.add('selected');
+  }
+
+  if (S.selLeft && S.selRight) tryMatch();
+}
+
+function tryMatch() {
+  const L = S.selLeft, R = S.selRight;
+  const lIdx = parseInt(L.dataset.idx);
+  const rIdx = parseInt(R.dataset.idx);
+
+  if (lIdx === rIdx) {
+    // ✓ CORRECT
+    markCorrect(S.roundPairs[lIdx]);
+    L.classList.remove('selected'); R.classList.remove('selected');
+    L.classList.add('matched');     R.classList.add('matched');
+    S.selLeft = null; S.selRight = null;
+    updateStats(); checkRoundDone();
+
+  } else {
+    // ✗ WRONG — flash red, reveal the correct pair, queue the missed pair
+    S.isAnimating = true;
+    S.selLeft = null; S.selRight = null;
+    L.classList.remove('selected'); R.classList.remove('selected');
+    L.classList.add('wrong-flash'); R.classList.add('wrong-flash');
+
+    setTimeout(() => {
+      L.classList.remove('wrong-flash'); R.classList.remove('wrong-flash');
+      const correctR = document.getElementById('right-col').querySelector(`[data-idx="${lIdx}"]`);
+      L.classList.add('revealing'); if (correctR) correctR.classList.add('revealing');
+
+      setTimeout(() => {
+        L.classList.remove('revealing'); L.classList.add('missed');
+        if (correctR) { correctR.classList.remove('revealing'); correctR.classList.add('missed'); }
+        markMissed(S.roundPairs[lIdx]);
+        S.isAnimating = false;
+        updateStats(); checkRoundDone();
+      }, 1300);
+    }, 520);
+  }
+}
+
+function checkRoundDone() {
+  if (S.roundOk + S.roundBad >= S.roundPairs.length) setTimeout(showRoundEnd, 320);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MODE 2 · MULTIPLE CHOICE  (one prompt, 4 options)
+// ══════════════════════════════════════════════════════════════════
+function renderChoice() { showArea('choice'); showOneChoice(); }
+
+function buildDistractors(p) {
+  const answer = dstText(p);
+  const deck   = DECKS[S.deck];
+  let pool = deck.pool().filter(x => dstText(x) !== answer);
+  if (deck.grammar) {                       // same case/tense → harder, fairer
+    const same = pool.filter(x => x.form === p.form);
+    if (same.length >= 3) pool = same;
+  }
+  const out = [];
+  const seen = new Set();
+  for (const x of shuffle(pool)) {
+    const t = dstText(x);
+    if (!seen.has(t)) { seen.add(t); out.push(t); }
+    if (out.length === 3) break;
+  }
+  return out;
+}
+
+function showOneChoice() {
+  const area = document.getElementById('mc-area');
+  if (S.seqIdx >= S.roundPairs.length) { showRoundEnd(); return; }
+
+  const p = S.roundPairs[S.seqIdx];
+  const prompt = srcText(p), answer = dstText(p);
+  const opts = shuffle([answer, ...buildDistractors(p)]);
+
+  area.innerHTML =
+    `<div class="seq-counter">${S.seqIdx + 1} / ${S.roundPairs.length}</div>
+     ${tagOf(p) ? `<span class="seq-tag">${tagOf(p)}</span>` : ''}
+     <div class="seq-prompt" id="mc-prompt">${prompt}</div>
+     <div class="seq-hint">elige en ${dstLang() === 'pl' ? 'polaco 🇵🇱' : 'español'} · 🔊 toca para oír</div>
+     <div class="mc-options" id="mc-options"></div>`;
+
+  document.getElementById('mc-prompt').addEventListener('click', () => speakText(prompt, srcLang()));
+  const wrap = document.getElementById('mc-options');
+  opts.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'mc-opt';
+    b.textContent = o;
+    b.onclick = () => choiceAnswer(b, o === answer, answer, p);
+    wrap.appendChild(b);
+  });
+}
+
+function choiceAnswer(btn, ok, answer, p) {
+  const wrap = btn.parentElement;
+  if (btn.disabled) return;
+  [...wrap.children].forEach(b => b.disabled = true);
+  speakText(answer, dstLang());
+
+  if (ok) {
+    btn.classList.add('ok');
+    markCorrect(p);
+  } else {
+    btn.classList.add('bad');
+    markMissed(p);
+    [...wrap.children].forEach(b => { if (b.textContent === answer) b.classList.add('ok'); });
+  }
+  updateStats();
+  setTimeout(() => { S.seqIdx++; showOneChoice(); }, ok ? 750 : 1400);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MODE 3 · TYPING  (active recall)
+// ══════════════════════════════════════════════════════════════════
+function renderType() { showArea('type'); showOneType(); }
+
+// Lenient comparison: case-insensitive, accents/Polish diacritics folded,
+// punctuation & "(...)" qualifiers ignored, "/" alternatives all accepted.
+function norm(s) {
+  return (s || '').toLowerCase()
+    .replace(/ł/g, 'l')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[¡!¿?.,;:]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+function acceptable(answer) {
+  const base  = answer.replace(/\([^)]*\)/g, ' ');
+  const parts = base.split('/').map(norm).filter(Boolean);
+  return new Set([norm(answer), ...parts]);
+}
+
+function showOneType() {
+  const area = document.getElementById('type-area');
+  if (S.seqIdx >= S.roundPairs.length) { showRoundEnd(); return; }
+
+  const p = S.roundPairs[S.seqIdx];
+  const prompt = srcText(p);
+  area.innerHTML =
+    `<div class="seq-counter">${S.seqIdx + 1} / ${S.roundPairs.length}</div>
+     ${tagOf(p) ? `<span class="seq-tag">${tagOf(p)}</span>` : ''}
+     <div class="seq-prompt" id="ty-prompt">${prompt}</div>
+     <div class="seq-hint">escribe en ${dstLang() === 'pl' ? 'polaco 🇵🇱 (sin acentos vale)' : 'español'}</div>
+     <input id="ty-input" class="ty-input" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="tu respuesta…">
+     <div class="ty-fb" id="ty-fb"></div>
+     <button class="action-btn ty-btn" id="ty-go">Comprobar</button>`;
+
+  document.getElementById('ty-prompt').addEventListener('click', () => speakText(prompt, srcLang()));
+  const input = document.getElementById('ty-input');
+  input.focus();
+  const go = () => typeSubmit(p);
+  document.getElementById('ty-go').onclick = go;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+}
+
+function typeSubmit(p) {
+  const input = document.getElementById('ty-input');
+  if (!input || input.disabled) return;
+  const answer = dstText(p);
+  const ok = acceptable(answer).has(norm(input.value));
+
+  input.disabled = true;
+  document.getElementById('ty-go').disabled = true;
+  speakText(answer, dstLang());
+
+  const fb = document.getElementById('ty-fb');
+  if (ok) {
+    input.classList.add('ok');
+    fb.className = 'ty-fb ok';
+    fb.textContent = '✓ ¡Correcto!';
+    markCorrect(p);
+  } else {
+    input.classList.add('bad');
+    fb.className = 'ty-fb bad';
+    fb.innerHTML = `✗ Respuesta: <b>${answer}</b>`;
+    markMissed(p);
+  }
+  updateStats();
+  setTimeout(() => { S.seqIdx++; showOneType(); }, ok ? 900 : 1800);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ROUND / GAME END
+// ══════════════════════════════════════════════════════════════════
+function showRoundEnd() {
+  // Whole session mastered → final screen
+  if (S.rounds.length === 0 && S.retryQueue.length === 0 && S.doneSet.size >= S.sessionTotal) {
+    showFinal(); return;
+  }
+  showArea('none');
+  const allCorrect = S.roundBad === 0;
+  document.getElementById('rc-matched').textContent = S.roundOk;
+  document.getElementById('rc-missed').textContent  = S.roundBad;
+  document.getElementById('rc-retry').textContent   = S.retryQueue.length;
+  document.getElementById('rc-done').textContent    = `${S.doneSet.size}/${S.sessionTotal}`;
+  document.getElementById('rc-score').textContent   = S.score;
+  document.getElementById('round-icon').textContent  = allCorrect ? '✅' : '📋';
+  document.getElementById('round-title').textContent = allCorrect ? '¡Ronda perfecta!' : '¡Ronda completada!';
+  document.getElementById('round-title').style.color = allCorrect ? '#16a34a' : '#DC143C';
+  document.getElementById('round-complete').classList.add('visible');
+}
+
+function showFinal() {
+  showArea('none');
+  const total = S.totalMatched + S.totalMissed;
+  const pct   = total > 0 ? Math.round((S.totalMatched / total) * 100) : 0;
+
+  document.getElementById('final-score-num').textContent = S.score;
+  document.getElementById('final-matched').textContent   = S.totalMatched;
+  document.getElementById('final-missed').textContent    = S.totalMissed;
+  document.getElementById('final-rounds').textContent    = S.round + 1;
+  document.getElementById('final-sub').textContent       =
+    `Has dominado ${S.sessionTotal} tarjetas de «${DECKS[S.deck].label}» en ${S.round + 1} rondas. ¡Świetnie!`;
+  requestAnimationFrame(() => { document.getElementById('accuracy-bar').style.width = pct + '%'; });
+  document.getElementById('accuracy-pct').textContent = pct + '%';
+  document.getElementById('game-complete').classList.add('visible');
+}
+
+function nextRound() {
+  S.round++;
+  document.getElementById('round-complete').classList.remove('visible');
+  loadRound();
+}
+
+function restartGame() {        // play again, same deck + mode + direction
+  buildSession();
+  loadRound();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STATS
+// ══════════════════════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stat-score').textContent  = S.score;
+  document.getElementById('stat-done').textContent   = `${S.doneSet.size}/${S.sessionTotal}`;
+  document.getElementById('stat-missed').textContent = S.totalMissed;
+  document.getElementById('stat-round').textContent  = S.round + 1;
+  document.getElementById('progress-fill').style.width =
+    (S.sessionTotal ? S.doneSet.size / S.sessionTotal * 100 : 0) + '%';
+}
+
+// Bridge to the pronunciation engine (defined below) for choice/type modes
+function speakText(text, lang) {
+  if (typeof soundOn !== 'undefined' && !soundOn) return;
+  if (lang === 'es') speakSpanish(text); else speakPolish(text);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PRONUNCIATION
+//  Polish audio uses the device's native Polish voice when available
+//  (best quality, e.g. phones). When the device has NO Polish voice
+//  (common on Windows desktop), it falls back to meSpeak — a self-
+//  contained eSpeak engine loaded from a CDN that synthesises Polish
+//  in-browser, so it works everywhere with no API key.
+// ══════════════════════════════════════════════════════════════════
+let soundOn = localStorage.getItem('polaco-sound') !== '0';   // default ON
+let _voices = [];
+
+function refreshVoices() {
+  if ('speechSynthesis' in window) _voices = window.speechSynthesis.getVoices() || [];
+  // On desktops with no Polish voice, warm up the fallback engine ahead of time
+  if (_voices.length > 0 && !polishWebVoice() && mesState === 'idle') loadMespeak();
+}
+function pickVoice(lang) {
+  const base = lang.split('-')[0];
+  return _voices.find(v => v.lang === lang)
+      || _voices.find(v => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(base))
+      || null;
+}
+function polishWebVoice() {
+  return _voices.find(v => v.lang && v.lang.toLowerCase().startsWith('pl')) || null;
+}
+
+// Strip qualifiers like "(pas.)" and read "/" as a short pause for natural TTS
+function cleanForSpeech(t) {
+  return t.replace(/\([^)]*\)/g, '').replace(/\//g, ' , ').replace(/\s+/g, ' ').trim();
+}
+
+// ── native Web Speech voice ───────────────────────────────────────
+function webSpeak(text, lang, voice) {
+  if (!('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  try { if (synth.speaking) synth.cancel(); } catch (e) {}
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  if (voice) u.voice = voice;
+  u.rate = 0.9;
+  synth.speak(u);
+}
+
+// ── meSpeak fallback engine (lazy-loaded eSpeak from CDN) ──────────
+const MES_BASE = 'https://cdn.jsdelivr.net/npm/mespeak@2.0.2/';
+let mesState = 'idle';   // idle | loading | ready | failed
+let mesPending = null;   // last Polish text requested before the engine was ready
+
+function loadMespeak() {
+  if (mesState !== 'idle') return;
+  mesState = 'loading';
+  const src = MES_BASE + 'src/';
+  const cache = {};
+  const loadCJS = (file) => fetch(src + file).then(r => r.text()).then(code => {
+    const module = { exports: {} };
+    const require = (p) => cache[p.replace(/^\.\//, '')] || {};
+    new Function('module', 'exports', 'require', 'self', 'window', 'process', 'global', code)
+      (module, module.exports, require, window, window, undefined, window);
+    cache[file] = module.exports;
+    cache[file.replace('.js', '')] = module.exports;
+    return module.exports;
+  });
+  loadCJS('ESpeak.js')
+    .then(() => loadCJS('index.js'))
+    .then(M => {
+      window.meSpeak = M;
+      M.loadConfig(MES_BASE + 'src/mespeak_config.json');
+      M.loadVoice(MES_BASE + 'voices/pl.json', (ok) => {
+        if (!ok) { mesState = 'failed'; return; }
+        mesState = 'ready';
+        if (mesPending) { const t = mesPending; mesPending = null; mesSpeak(t); }
+      });
+    })
+    .catch(() => { mesState = 'failed'; });
+}
+
+function mesSpeak(text) {
+  if (mesState === 'ready' && window.meSpeak) {
+    try {
+      const url = window.meSpeak.speak(text, { voice: 'pl', speed: 160, rawdata: 'data-url' });
+      if (url) { new Audio(url).play().catch(() => {}); }
+    } catch (e) {}
+    return;
+  }
+  mesPending = text;                 // remember it; play once the engine is ready
+  if (mesState === 'idle') loadMespeak();
+}
+
+// ── public entry points ───────────────────────────────────────────
+function speakPolish(text) {
+  const clean = cleanForSpeech(text);
+  if (!clean) return;
+  refreshVoices();
+  const v = polishWebVoice();
+  if (v) return webSpeak(clean, 'pl-PL', v);     // native Polish voice → best
+  if (_voices.length === 0) return webSpeak(clean, 'pl-PL', null); // voices not ready: trust browser
+  mesSpeak(clean);                               // no Polish voice on device → eSpeak engine
+}
+function speakSpanish(text) {
+  const clean = cleanForSpeech(text);
+  if (clean) webSpeak(clean, 'es-ES', pickVoice('es-ES'));
+}
+
+function speakCard(card) {
+  if (!soundOn) return;
+  if (card.dataset.lang === 'es') speakSpanish(card.textContent);
+  else                            speakPolish(card.textContent);
+}
+
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+  localStorage.setItem('polaco-sound', soundOn ? '1' : '0');
+  if (soundOn) speakPolish('polski');   // unlock audio + quick confirmation
+}
+
+// Detect voices now that all state above is initialised (and re-check when they load)
+if ('speechSynthesis' in window) {
+  refreshVoices();
+  window.speechSynthesis.onvoiceschanged = refreshVoices;   // voices load async
+}
+
+// Restore saved sound preference
+document.getElementById('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+
+// ══════════════════════════════════════════════════════════════════
+//  DARK MODE
+// ══════════════════════════════════════════════════════════════════
+function toggleDark() {
+  const isDark = document.body.classList.toggle('dark');
+  document.getElementById('dark-btn').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('polaco-dark', isDark ? '1' : '0');
+}
+
+// Restore saved preference
+if (localStorage.getItem('polaco-dark') === '1') {
+  document.body.classList.add('dark');
+  document.getElementById('dark-btn').textContent = '☀️';
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+showMenu();
+</script>
+</body>
+</html>

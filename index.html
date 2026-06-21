@@ -2346,10 +2346,17 @@ function buildDistractors(p) {
   const answer = dstText(p);
   const deck   = DECKS[S.deck];
   let pool = deck.pool().filter(x => dstText(x) !== answer && inScope(x, S.level));
-  if (deck.grammar) {                       // same case/tense → harder, fairer
+
+  // If the answer is a grammar card (conjugation / case / tense), the wrong
+  // options MUST share its exact `form` — same person AND tense for verbs,
+  // same case for nouns. Otherwise the player just discards the odd-looking
+  // forms and backs into the meaning ("yo como" vs "tú lloras", "perro").
+  // This is keyed off the answer card itself, so it also holds in "Todo".
+  if (p.form) {
     const same = pool.filter(x => x.form === p.form);
     if (same.length >= 3) pool = same;
   }
+
   const out = [];
   const seen = new Set();
   for (const x of shuffle(pool)) {

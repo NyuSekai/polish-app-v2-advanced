@@ -354,6 +354,34 @@
       width: 1.25rem; height: 1.25rem; border-radius: 50%;
       background: #DC143C; color: white; font-size: 0.72rem;
     }
+    /* ── v2.1 · level selector ────────────────────────────────────── */
+    .level-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; }
+    .level-card {
+      display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
+      background: white; border: 2px solid #e2e2e2; border-radius: 13px;
+      padding: 0.8rem 0.5rem; cursor: pointer; font-family: inherit; text-align: center;
+      transition: border-color .15s, transform .15s, box-shadow .15s, background .15s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .level-card:hover { border-color: #f4a3b4; transform: translateY(-2px); box-shadow: 0 5px 16px rgba(220,20,60,0.13); }
+    .level-card.sel { border-color: #DC143C; background: #fff5f7; box-shadow: 0 5px 18px rgba(220,20,60,0.2); }
+    .level-id { font-size: 1.35rem; font-weight: 800; color: #1a1a1a; line-height: 1.1; }
+    .level-card.sel .level-id { color: #DC143C; }
+    .level-ds { font-size: 0.72rem; color: #888; }
+    .level-ct { font-size: 0.66rem; font-weight: 700; color: #16a34a; margin-top: 0.15rem; }
+    .lvl-badge { background: rgba(255,255,255,0.32) !important; font-weight: 800 !important; }
+    body.dark .level-card { background: #1e2130; border-color: #2e3348; box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    body.dark .level-card:hover { border-color: #6b1a2a; }
+    body.dark .level-card.sel { background: #2d0f18; border-color: #DC143C; }
+    body.dark .level-id { color: #e2e4eb; }
+    body.dark .level-ds { color: #9ca3af; }
+
+    /* locked deck cards */
+    .pick-card.locked { opacity: 0.5; cursor: not-allowed; filter: grayscale(0.6); }
+    .pick-card.locked:hover { transform: none; border-color: #e2e2e2; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .pick-card.locked .pick-ds { color: #b9772b; font-weight: 600; }
+    body.dark .pick-card.locked:hover { border-color: #2e3348; }
+
     .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 0.7rem; }
     .pick-card {
       text-align: left; background: white; border: 2px solid #e2e2e2; border-radius: 13px;
@@ -451,6 +479,11 @@
       .seq-prompt { font-size: 1.4rem; }
       .mc-opt { font-size: 0.86rem; padding: 0.75rem 0.5rem; }
       .pick-grid { grid-template-columns: 1fr; }
+      .level-grid { gap: 0.4rem; }
+      .level-card { padding: 0.6rem 0.2rem; }
+      .level-id { font-size: 1.1rem; }
+      .level-ds { font-size: 0.6rem; }
+      .level-ct { font-size: 0.58rem; }
       .menu-title { font-size: 1.25rem; }
       header { padding: 0.7rem 1rem; }
       header h1 { font-size: 0.9rem; }
@@ -485,16 +518,19 @@
      ════════════════════════════════════════════════════════════════ -->
 <div id="menu" class="screen">
   <div class="menu-inner">
-    <h2 class="menu-title">Práctica de polaco · nivel B1–B2</h2>
-    <p class="menu-lead">Elige <b>qué</b> practicar, <b>cómo</b> y en qué <b>dirección</b>. Tu progreso se sigue ronda a ronda y lo que fallas vuelve para repasarlo.</p>
+    <h2 class="menu-title">Práctica de polaco · A1 → B2</h2>
+    <p class="menu-lead">Elige tu <b>nivel</b>, <b>qué</b> practicar, <b>cómo</b> y en qué <b>dirección</b>. Cada nivel incluye también lo de los niveles anteriores. Lo que fallas vuelve para repasarlo.</p>
 
-    <div class="menu-step"><span>1</span> ¿Qué quieres practicar?</div>
+    <div class="menu-step"><span>1</span> ¿Cuál es tu nivel?</div>
+    <div id="level-grid" class="level-grid"></div>
+
+    <div class="menu-step"><span>2</span> ¿Qué quieres practicar?</div>
     <div id="deck-grid" class="pick-grid"></div>
 
-    <div class="menu-step"><span>2</span> ¿Cómo?</div>
+    <div class="menu-step"><span>3</span> ¿Cómo?</div>
     <div id="mode-grid" class="pick-grid"></div>
 
-    <div class="menu-step"><span>3</span> Dirección</div>
+    <div class="menu-step"><span>4</span> Dirección</div>
     <div class="mode-toggle menu-dir">
       <button class="mode-btn active" id="dir-es-pl" onclick="setDir('es-pl')">Español → Polaco</button>
       <button class="mode-btn"        id="dir-pl-es" onclick="setDir('pl-es')">Polaco → Español</button>
@@ -513,6 +549,7 @@
   <div class="controls">
     <button class="ghost-btn" onclick="showMenu()">← Menú</button>
     <div class="game-tags">
+      <span class="badge lvl-badge" id="game-level-name">A1</span>
       <span class="badge" id="game-deck-name">—</span>
       <span class="badge" id="game-mode-name">—</span>
     </div>
@@ -1829,6 +1866,106 @@ const CASES = [
 ];
 
 // ══════════════════════════════════════════════════════════════════
+//  v2.1 ── CEFR LEVELS  (A1 → B2)
+//  Every item gets a `lvl`. Levels are CUMULATIVE: choosing B2 includes
+//  everything easier (a B2 learner still knows A1 words). Vocabulary is
+//  graded with curated word sets; grammar by its type.
+// ══════════════════════════════════════════════════════════════════
+const RANK   = { A1:1, A2:2, B1:3, B2:4 };
+const LEVELS = {
+  A1: { label:'A1', desc:'Principiante' },
+  A2: { label:'A2', desc:'Básico' },
+  B1: { label:'B1', desc:'Intermedio' },
+  B2: { label:'B2', desc:'Intermedio alto' },
+};
+
+// A1 core: the most fundamental survival vocabulary (function words, top
+// verbs, family, body, food, numbers, greetings, basic adj/adv).
+const LVL_A1 = new Set([
+  // conectores / interrogativas / pronombres
+  "tak","nie","i","ale","że","bo","więc","lub","też","nawet","albo","jeśli","gdy",
+  "jak","gdzie","kiedy","dlaczego","kto","co","ile",
+  "ja","ty","on","ona","my","wy","oni","to","ten","ta","się","mój","nasz","pan","pani",
+  // verbos núcleo (SET 1)
+  "być","mieć","chcieć","wiedzieć","móc","musieć","mówić","iść","robić","dać","wziąć",
+  "myśleć","czuć","widzieć","zobaczyć","słyszeć","znać","rozumieć","powiedzieć","pytać",
+  // preposiciones núcleo
+  "w","na","z","do","od","przez","po","za","o","przy","przed","nad","pod","bez","dla","blisko","daleko",
+  // tiempo
+  "czas","dzień","rok","noc","chwila","godzina","tydzień","miesiąc","jutro","wczoraj","dziś","rano",
+  // lugares básicos
+  "miejsce","kraj","świat","miasto","dom","droga","ulica","szkoła","sklep","park","hotel","bank",
+  // naturaleza básica
+  "woda","słońce","niebo","morze","ziemia",
+  // personas
+  "człowiek","kobieta","mężczyzna","dziecko","rodzina","przyjaciel","mama","tata","ojciec",
+  "matka","brat","siostra","syn","córka","chłopak","dziewczyna",
+  // cuerpo
+  "oko","głowa","ręka","noga","serce","twarz","usta","ucho","nos","ciało","włosy","ząb",
+  // objetos
+  "pieniądze","telefon","samochód","książka","drzwi","okno","stół","krzesło","klucz","łóżko",
+  "komputer","ubranie","buty","zegarek",
+  // comida
+  "jedzenie","chleb","mięso","mleko","owoc","warzywo","ryż","zupa","kawa",
+  // conceptos cotidianos
+  "praca","życie","miłość","problem","pytanie","odpowiedź","historia","prawda","słowo",
+  "język","imię","nazwisko","numer","muzyka","gra","pomoc","pokój",
+  // adjetivos básicos
+  "duży","mały","długi","krótki","wysoki","niski","szeroki","wąski","ciężki","lekki","stary",
+  "młody","nowy","piękny","brzydki","dobry","zły","trudny","łatwy","szybki",
+  // adverbios básicos
+  "bardzo","teraz","już","jeszcze","tylko","zawsze","nigdy","może","razem","dobrze","tu","tam",
+  "wcześnie","późno","szybko","wolno","dużo","mało","znowu","naprawdę",
+  // números
+  "zero","jeden","dwa","trzy","cztery","pięć","sześć","siedem","osiem","dziewięć","dziesięć",
+  "jedenaście","dwanaście","trzynaście","czternaście","piętnaście","szesnaście","siedemnaście",
+  "osiemnaście","dziewiętnaście","dwadzieścia","trzydzieści","czterdzieści","pięćdziesiąt",
+  "sześćdziesiąt","siedemdziesiąt","osiemdziesiąt","dziewięćdziesiąt","sto","tysiąc",
+  // saludos
+  "dziękuję","proszę","przepraszam","cześć","dzień dobry","do widzenia","dobranoc",
+  "na zdrowie","pomocy","dobrze?",
+  // animales comunes
+  "pies","kot","koń","ptak","ryba","królik","krowa","świnia","owca","kurczak",
+]);
+
+// A handful of base words that sit at B1 rather than A2.
+const LVL_B1_BASE = new Set([
+  "ponieważ","jednak","zatem","skoro","natomiast","mimo",
+  "wygrać","przegrać","przyjechać","wyjechać","spotkać","poznać","wybrać","ufać","milczeć",
+  "uczciwy","odważny","nieśmiały","poważny","dziwny",
+  "wolność","śmierć","wiara","nadzieja","kłamstwo",
+]);
+
+// Of the advanced VOCAB_B12 set, the more abstract/formal half is B2.
+const LVL_B2 = new Set([
+  "sprawiedliwość","równość","odpowiedzialność","wątpliwość","podobieństwo","skutek","przyczyna",
+  "znaczenie","wpływ","rozwój","wzrost","jakość","ilość","wartość","poziom",
+  "gospodarka","zatrudnienie","bezrobocie","wynagrodzenie","podatek","budżet","inwestycja",
+  "konkurencja","obywatel","polityka","umowa","streszczenie","wniosek","dowód","punkt widzenia",
+  "argument","środowisko","zanieczyszczenie","zmiana klimatu","zasób","leczenie",
+  "skomplikowany","konieczny","oczywisty","dokładny","bezużyteczny","niemożliwy","zdolny","dumny",
+  "ogólny","obecny","nieznany","odpowiedzialny",
+  "niestety","pomimo","tymczasem","natomiast","przede wszystkim","właściwie","ponadto",
+]);
+
+// Assign a CEFR level to every item.
+WORDS.forEach(w => {
+  if (w.conj) { w.lvl = 'A2'; }                                  // present & past conjugations
+  else        { w.lvl = LVL_A1.has(w.pl) ? 'A1' : LVL_B1_BASE.has(w.pl) ? 'B1' : 'A2'; }
+});
+VOCAB_B12.forEach(w => { w.lvl = LVL_B2.has(w.pl) ? 'B2' : 'B1'; });
+CASES.forEach(c => { c.lvl = 'B1'; });
+TENSES.forEach(t => { t.lvl = (t.tag === 'condic.' || t.tag === 'imperat.') ? 'B2' : 'B1'; });
+
+// Combined pools for the decks
+const ALL_VOCAB   = [...WORDS.filter(w => !w.conj), ...VOCAB_B12];
+const ALL_CONTENT = [...WORDS, ...VOCAB_B12, ...CASES, ...TENSES];
+
+function inScope(item, level) { return RANK[item.lvl || 'A2'] <= RANK[level]; }
+// How many vocabulary words are unlocked at a given level (for menu labels)
+function vocabCountAt(level) { return ALL_VOCAB.filter(w => inScope(w, level)).length; }
+
+// ══════════════════════════════════════════════════════════════════
 //  CONSTANTS
 // ══════════════════════════════════════════════════════════════════
 const ROUND_SIZE   = 8;     // pairs shown per round
@@ -1836,13 +1973,14 @@ const SESSION_SIZE = 48;    // tracked pairs per game (larger decks are sampled)
 const RETRY_DELAY  = 2;     // a missed pair returns ~2 rounds later
 
 // ── Content decks: WHAT the player practises ──────────────────────
+//  `minRank` = lowest level at which the deck unlocks (grammar decks).
+//  Every deck's pool is further filtered to the chosen level at runtime.
 const DECKS = {
-  b12:     { label:'Vocabulario B1–B2',          icon:'🎓', desc:'Léxico avanzado: abstracto, trabajo, opinión',  pool:()=>VOCAB_B12 },
-  casos:   { label:'Casos (declinación)',        icon:'🧩', desc:'Los 7 casos polacos en contexto', grammar:true, pool:()=>CASES },
-  tiempos: { label:'Tiempos avanzados',          icon:'⏳', desc:'Futuro · condicional · imperativo', grammar:true, pool:()=>TENSES },
-  verbos:  { label:'Verbos: presente y pasado',  icon:'🔤', desc:'Conjugaciones básicas',           grammar:true, pool:()=>WORDS.filter(w=>w.conj) },
-  basico:  { label:'Vocabulario básico',         icon:'📘', desc:'~700 palabras del día a día',                   pool:()=>WORDS.filter(w=>!w.conj) },
-  todo:    { label:'Todo mezclado',              icon:'🎲', desc:'Un poco de todo lo anterior',                   pool:()=>[...VOCAB_B12, ...CASES, ...TENSES, ...WORDS] },
+  vocab:   { label:'Vocabulario',           icon:'📚', desc:'Palabras de tu nivel y los anteriores',         minRank:1, pool:()=>ALL_VOCAB },
+  verbos:  { label:'Verbos (conjugación)',  icon:'🔤', desc:'Presente y pasado',         grammar:true, minRank:2, pool:()=>WORDS.filter(w=>w.conj) },
+  casos:   { label:'Casos (declinación)',   icon:'🧩', desc:'Los 7 casos en contexto',   grammar:true, minRank:3, pool:()=>CASES },
+  tiempos: { label:'Tiempos avanzados',     icon:'⏳', desc:'Futuro · condicional · imperativo', grammar:true, minRank:3, pool:()=>TENSES },
+  todo:    { label:'Todo mezclado',         icon:'🎲', desc:'Todo lo de tu nivel',                            minRank:1, pool:()=>ALL_CONTENT },
 };
 
 // ── Modes: HOW they practise ──────────────────────────────────────
@@ -1856,7 +1994,8 @@ const MODES = {
 //  STATE
 // ══════════════════════════════════════════════════════════════════
 let S = {
-  deck:        'b12',     // chosen content deck
+  level:       'A1',      // chosen CEFR level (A1..B2)
+  deck:        'vocab',   // chosen content deck
   gameMode:    'match',   // match | choice | type
   dir:         'es-pl',   // prompt direction
 
@@ -1882,8 +2021,11 @@ let S = {
   seqIdx:      0,
 };
 
-// Selection state for the menu
-let MENU = { deck:'b12', mode:'match', dir:'es-pl' };
+// Selection state for the menu (level remembered across sessions)
+let MENU = {
+  level: localStorage.getItem('polaco-level') || 'A1',
+  deck:'vocab', mode:'match', dir:'es-pl'
+};
 
 // ══════════════════════════════════════════════════════════════════
 //  UTILS
@@ -1900,19 +2042,44 @@ function shuffle(arr) {
 // ══════════════════════════════════════════════════════════════════
 //  MENU  — choose deck + mode + direction
 // ══════════════════════════════════════════════════════════════════
+const RANK_NAME = { 2:'A2', 3:'B1', 4:'B2' };   // minRank → unlock level label
+
 function buildMenu() {
+  const lvlRank = RANK[MENU.level];
+
+  // ── Step 1 · level ──
+  const lg = document.getElementById('level-grid');
+  lg.innerHTML = '';
+  Object.entries(LEVELS).forEach(([id, L]) => {
+    const el = document.createElement('button');
+    el.className = 'level-card' + (MENU.level === id ? ' sel' : '');
+    el.innerHTML = `<span class="level-id">${L.label}</span>
+      <span class="level-ds">${L.desc}</span>
+      <span class="level-ct">${vocabCountAt(id)} palabras</span>`;
+    el.onclick = () => selectLevel(id);
+    lg.appendChild(el);
+  });
+
+  // If the selected deck is now locked at this level, fall back to vocab
+  if (DECKS[MENU.deck].minRank > lvlRank) MENU.deck = 'vocab';
+
+  // ── Step 2 · deck (locked above level) ──
   const dg = document.getElementById('deck-grid');
   dg.innerHTML = '';
   Object.entries(DECKS).forEach(([id, d]) => {
+    const locked = d.minRank > lvlRank;
     const el = document.createElement('button');
-    el.className = 'pick-card' + (MENU.deck === id ? ' sel' : '');
+    el.className = 'pick-card' + (MENU.deck === id ? ' sel' : '') + (locked ? ' locked' : '');
+    el.disabled = locked;
+    const sub = locked ? `🔒 desde ${RANK_NAME[d.minRank]}` : d.desc;
     el.innerHTML = `<span class="pick-ic">${d.icon}</span>
       <span class="pick-tt">${d.label}</span>
-      <span class="pick-ds">${d.desc}</span>`;
-    el.onclick = () => selectDeck(id);
+      <span class="pick-ds">${sub}</span>`;
+    if (!locked) el.onclick = () => selectDeck(id);
     dg.appendChild(el);
   });
 
+  // ── Step 3 · mode ──
   const mg = document.getElementById('mode-grid');
   mg.innerHTML = '';
   Object.entries(MODES).forEach(([id, m]) => {
@@ -1928,9 +2095,10 @@ function buildMenu() {
   document.getElementById('dir-es-pl').classList.toggle('active', MENU.dir === 'es-pl');
   document.getElementById('dir-pl-es').classList.toggle('active', MENU.dir === 'pl-es');
 }
-function selectDeck(id) { MENU.deck = id; buildMenu(); }
-function selectMode(id) { MENU.mode = id; buildMenu(); }
-function setDir(d)      { MENU.dir  = d;  buildMenu(); }
+function selectLevel(id) { MENU.level = id; localStorage.setItem('polaco-level', id); buildMenu(); }
+function selectDeck(id)  { MENU.deck = id; buildMenu(); }
+function selectMode(id)  { MENU.mode = id; buildMenu(); }
+function setDir(d)       { MENU.dir  = d;  buildMenu(); }
 
 function showMenu() {
   document.getElementById('game').style.display = 'none';
@@ -1944,10 +2112,11 @@ function showMenu() {
 //  START GAME  — from the menu selections
 // ══════════════════════════════════════════════════════════════════
 function startGame() {
-  S.deck = MENU.deck; S.gameMode = MENU.mode; S.dir = MENU.dir;
+  S.level = MENU.level; S.deck = MENU.deck; S.gameMode = MENU.mode; S.dir = MENU.dir;
   buildSession();
   document.getElementById('menu').style.display = 'none';
   document.getElementById('game').style.display = 'block';
+  document.getElementById('game-level-name').textContent = S.level;
   document.getElementById('game-deck-name').textContent = DECKS[S.deck].icon + ' ' + DECKS[S.deck].label;
   document.getElementById('game-mode-name').textContent = MODES[S.gameMode].icon + ' ' + MODES[S.gameMode].label;
   loadRound();
@@ -1965,9 +2134,10 @@ function orderGrammar(pool) {
 
 function buildSession() {
   const deck = DECKS[S.deck];
-  // de-dup (the "todo" deck overlaps other decks)
+  // de-dup (the "todo" deck overlaps other decks) + keep only items at/below level
   const seen = new Set();
   let pool = deck.pool().filter(p => {
+    if (!inScope(p, S.level)) return false;
     const k = p.es + '|' + p.pl;
     if (seen.has(k)) return false;
     seen.add(k); return true;
@@ -2175,7 +2345,7 @@ function renderChoice() { showArea('choice'); showOneChoice(); }
 function buildDistractors(p) {
   const answer = dstText(p);
   const deck   = DECKS[S.deck];
-  let pool = deck.pool().filter(x => dstText(x) !== answer);
+  let pool = deck.pool().filter(x => dstText(x) !== answer && inScope(x, S.level));
   if (deck.grammar) {                       // same case/tense → harder, fairer
     const same = pool.filter(x => x.form === p.form);
     if (same.length >= 3) pool = same;

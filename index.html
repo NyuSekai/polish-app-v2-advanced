@@ -2408,7 +2408,8 @@ function choiceAnswer(btn, ok, answer, p) {
     [...wrap.children].forEach(b => { if (b.textContent === answer) b.classList.add('ok'); });
   }
   updateStats();
-  setTimeout(() => { S.seqIdx++; showOneChoice(); }, ok ? 750 : 1400);
+  // Give the pronunciation time to finish before moving on.
+  setTimeout(() => { S.seqIdx++; showOneChoice(); }, ok ? 1500 : 2300);
 }
 
 // ══════════════════════════════════════════════════════════════════

@@ -1865,6 +1865,144 @@ const CASES = [
   { es:"¡hijo! (dirigiéndose)",     pl:"synu!",               conj:true, tag:"Vocat.", form:"voc" },
 ];
 
+// ── ADVANCED VOCABULARY EXPANSION (B1–B2) ─────────────────────────
+//  Extra genuinely upper-intermediate words so B1/B2 have a deeper pool.
+//  Each carries its own `lvl`. Themes not already covered by VOCAB_B12.
+const VOCAB_ADV = [
+  // emociones y carácter
+  { es:"vergüenza",                   pl:"wstyd",           lvl:"B1" },
+  { es:"envidia / celos",             pl:"zazdrość",        lvl:"B1" },
+  { es:"culpa",                       pl:"wina",            lvl:"B1" },
+  { es:"alivio",                      pl:"ulga",            lvl:"B2" },
+  { es:"asombro / sorpresa",          pl:"zdziwienie",      lvl:"B1" },
+  { es:"ira / enojo",                 pl:"gniew",           lvl:"B1" },
+  { es:"ternura",                     pl:"czułość",         lvl:"B2" },
+  { es:"compasión",                   pl:"współczucie",     lvl:"B2" },
+  { es:"gratitud",                    pl:"wdzięczność",     lvl:"B2" },
+  { es:"soledad",                     pl:"samotność",       lvl:"B1" },
+  { es:"amabilidad / cortesía",       pl:"uprzejmość",      lvl:"B2" },
+  { es:"paciencia",                   pl:"cierpliwość",     lvl:"B1" },
+  { es:"valentía / coraje",           pl:"odwaga",          lvl:"B1" },
+  { es:"sinceridad",                  pl:"szczerość",       lvl:"B2" },
+  { es:"generoso",                    pl:"hojny",           lvl:"B2" },
+  { es:"egoísta",                     pl:"samolubny",       lvl:"B1" },
+  { es:"ambicioso",                   pl:"ambitny",         lvl:"B1" },
+  { es:"terco / testarudo",           pl:"uparty",          lvl:"B1" },
+  { es:"sensible (emocional)",        pl:"wrażliwy",        lvl:"B1" },
+  { es:"exigente",                    pl:"wymagający",      lvl:"B2" },
+  { es:"fiable / de confianza",       pl:"niezawodny",      lvl:"B2" },
+  { es:"consciente",                  pl:"świadomy",        lvl:"B2" },
+
+  // sociedad, política y ley
+  { es:"juez",                        pl:"sędzia",          lvl:"B2" },
+  { es:"abogado",                     pl:"prawnik",         lvl:"B1" },
+  { es:"testigo",                     pl:"świadek",         lvl:"B2" },
+  { es:"delito / crimen",             pl:"przestępstwo",    lvl:"B2" },
+  { es:"castigo / pena",              pl:"kara",            lvl:"B1" },
+  { es:"tribunal / juzgado",          pl:"sąd",             lvl:"B2" },
+  { es:"cárcel / prisión",            pl:"więzienie",       lvl:"B1" },
+  { es:"poder (político)",            pl:"władza",          lvl:"B2" },
+  { es:"frontera",                    pl:"granica",         lvl:"B1" },
+  { es:"nación / pueblo",             pl:"naród",           lvl:"B1" },
+  { es:"ejército",                    pl:"wojsko",          lvl:"B1" },
+  { es:"huelga",                      pl:"strajk",          lvl:"B2" },
+  { es:"manifestación",               pl:"demonstracja",    lvl:"B2" },
+  { es:"discurso",                    pl:"przemówienie",    lvl:"B2" },
+  { es:"acuerdo / entendimiento",     pl:"porozumienie",    lvl:"B2" },
+  { es:"conflicto",                   pl:"konflikt",        lvl:"B1" },
+  { es:"seguridad (protección)",      pl:"bezpieczeństwo",  lvl:"B1" },
+  { es:"pobreza",                     pl:"bieda",           lvl:"B1" },
+  { es:"riqueza",                     pl:"bogactwo",        lvl:"B1" },
+  { es:"desigualdad",                 pl:"nierówność",      lvl:"B2" },
+
+  // trabajo y economía
+  { es:"ascenso (laboral)",           pl:"awans",           lvl:"B2" },
+  { es:"despido",                     pl:"zwolnienie",      lvl:"B2" },
+  { es:"préstamo",                    pl:"pożyczka",        lvl:"B2" },
+  { es:"ahorros",                     pl:"oszczędności",    lvl:"B2" },
+  { es:"factura",                     pl:"faktura",         lvl:"B1" },
+  { es:"socio (comercial)",           pl:"wspólnik",        lvl:"B2" },
+  { es:"riesgo",                      pl:"ryzyko",          lvl:"B1" },
+  { es:"beneficio / provecho",        pl:"korzyść",         lvl:"B1" },
+  { es:"crisis",                      pl:"kryzys",          lvl:"B1" },
+
+  // ciencia y educación
+  { es:"teoría",                      pl:"teoria",          lvl:"B1" },
+  { es:"hipótesis",                   pl:"hipoteza",        lvl:"B2" },
+  { es:"experimento",                 pl:"eksperyment",     lvl:"B1" },
+  { es:"datos",                       pl:"dane",            lvl:"B1" },
+  { es:"resultado",                   pl:"wynik",           lvl:"B1" },
+  { es:"método",                      pl:"metoda",          lvl:"B1" },
+  { es:"análisis",                    pl:"analiza",         lvl:"B2" },
+  { es:"fuente (de información)",      pl:"źródło",          lvl:"B2" },
+  { es:"sabiduría",                   pl:"mądrość",         lvl:"B2" },
+  { es:"concepto / noción",           pl:"pojęcie",         lvl:"B2" },
+  { es:"definición",                  pl:"definicja",       lvl:"B1" },
+  { es:"razonamiento",                pl:"rozumowanie",     lvl:"B2" },
+  { es:"asignatura / materia",        pl:"przedmiot",       lvl:"B1" },
+  { es:"estudios / carrera",          pl:"studia",          lvl:"B1" },
+  { es:"beca",                        pl:"stypendium",      lvl:"B2" },
+  { es:"examen",                      pl:"egzamin",         lvl:"B1" },
+  { es:"nota / calificación",         pl:"ocena",           lvl:"B1" },
+
+  // comunicación y medios
+  { es:"debate",                      pl:"debata",          lvl:"B2" },
+  { es:"rumor / chisme",              pl:"plotka",          lvl:"B1" },
+  { es:"anuncio / aviso",             pl:"ogłoszenie",      lvl:"B1" },
+  { es:"titular / encabezado",        pl:"nagłówek",        lvl:"B2" },
+  { es:"redes sociales",              pl:"media społecznościowe", lvl:"B1" },
+
+  // adjetivos abstractos
+  { es:"complejo / intrincado",       pl:"złożony",         lvl:"B2" },
+  { es:"eficaz",                      pl:"skuteczny",       lvl:"B2" },
+  { es:"eficiente",                   pl:"wydajny",         lvl:"B2" },
+  { es:"adecuado / apropiado",        pl:"odpowiedni",      lvl:"B1" },
+  { es:"imprescindible / esencial",   pl:"niezbędny",       lvl:"B2" },
+  { es:"sostenible / equilibrado",    pl:"zrównoważony",    lvl:"B2" },
+  { es:"ambiguo",                     pl:"niejednoznaczny", lvl:"B2" },
+  { es:"diverso / variado",           pl:"różnorodny",      lvl:"B1" },
+  { es:"mutuo / recíproco",           pl:"wzajemny",        lvl:"B2" },
+  { es:"sutil",                       pl:"subtelny",        lvl:"B2" },
+  { es:"escaso",                      pl:"nieliczny",       lvl:"B2" },
+  { es:"detallado",                   pl:"szczegółowy",     lvl:"B1" },
+  { es:"razonable / sensato",         pl:"rozsądny",        lvl:"B1" },
+  { es:"injusto",                     pl:"niesprawiedliwy", lvl:"B1" },
+  { es:"previo / anterior",           pl:"wcześniejszy",    lvl:"B1" },
+  { es:"actual / al día",             pl:"aktualny",        lvl:"B1" },
+  { es:"significativo",               pl:"znaczący",        lvl:"B2" },
+
+  // verbos avanzados (infinitivo)
+  { es:"lograr / alcanzar",           pl:"osiągnąć",        lvl:"B1" },
+  { es:"suponer / presumir",          pl:"przypuszczać",    lvl:"B2" },
+  { es:"exigir / requerir",           pl:"wymagać",         lvl:"B2" },
+  { es:"impedir",                     pl:"uniemożliwić",    lvl:"B2" },
+  { es:"desarrollar",                 pl:"rozwijać",        lvl:"B1" },
+  { es:"mejorar",                     pl:"poprawiać",       lvl:"B1" },
+  { es:"empeorar",                    pl:"pogarszać",       lvl:"B2" },
+  { es:"aumentar / incrementar",      pl:"zwiększać",       lvl:"B1" },
+  { es:"disminuir / reducir",         pl:"zmniejszać",      lvl:"B1" },
+  { es:"afectar / influir",           pl:"wpływać",         lvl:"B1" },
+  { es:"provocar / causar",           pl:"powodować",       lvl:"B1" },
+  { es:"evitar",                      pl:"unikać",          lvl:"B1" },
+  { es:"advertir / avisar",           pl:"ostrzegać",       lvl:"B2" },
+  { es:"sospechar",                   pl:"podejrzewać",     lvl:"B2" },
+  { es:"asumir / dar por hecho",      pl:"zakładać",        lvl:"B2" },
+  { es:"garantizar",                  pl:"gwarantować",     lvl:"B2" },
+  { es:"subrayar / destacar",         pl:"podkreślać",      lvl:"B2" },
+  { es:"pertenecer",                  pl:"należeć",         lvl:"B1" },
+  { es:"depender",                    pl:"zależeć",         lvl:"B1" },
+  { es:"referirse a",                 pl:"odnosić się",     lvl:"B2" },
+  { es:"atreverse",                   pl:"odważyć się",     lvl:"B2" },
+  { es:"arriesgar(se)",               pl:"ryzykować",       lvl:"B1" },
+  { es:"soportar / aguantar",         pl:"znosić",          lvl:"B2" },
+  { es:"resolver",                    pl:"rozwiązywać",     lvl:"B1" },
+  { es:"añadir / agregar",            pl:"dodawać",         lvl:"B1" },
+  { es:"reconocer (identificar)",     pl:"rozpoznawać",     lvl:"B1" },
+  { es:"admitir / reconocer",         pl:"przyznać",        lvl:"B2" },
+  { es:"negar",                       pl:"zaprzeczać",      lvl:"B2" },
+  { es:"comportarse",                 pl:"zachowywać się",  lvl:"B1" },
+];
+
 // ══════════════════════════════════════════════════════════════════
 //  v2.1 ── CEFR LEVELS  (A1 → B2)
 //  Every item gets a `lvl`. Levels are CUMULATIVE: choosing B2 includes
@@ -1954,12 +2092,22 @@ WORDS.forEach(w => {
   else        { w.lvl = LVL_A1.has(w.pl) ? 'A1' : LVL_B1_BASE.has(w.pl) ? 'B1' : 'A2'; }
 });
 VOCAB_B12.forEach(w => { w.lvl = LVL_B2.has(w.pl) ? 'B2' : 'B1'; });
+VOCAB_ADV.forEach(w => { if (!w.lvl) w.lvl = 'B1'; });   // expansion carries its own lvl
 CASES.forEach(c => { c.lvl = 'B1'; });
 TENSES.forEach(t => { t.lvl = (t.tag === 'condic.' || t.tag === 'imperat.') ? 'B2' : 'B1'; });
 
-// Combined pools for the decks
-const ALL_VOCAB   = [...WORDS.filter(w => !w.conj), ...VOCAB_B12];
-const ALL_CONTENT = [...WORDS, ...VOCAB_B12, ...CASES, ...TENSES];
+// Combined pools for the decks — vocabulary de-duplicated by Polish word
+// (some words appear in both the base list and the advanced lists), so a
+// round can never show the same Polish word twice with different Spanish.
+const ALL_VOCAB = (function () {
+  const seen = new Set(), out = [];
+  for (const w of [...WORDS.filter(w => !w.conj), ...VOCAB_B12, ...VOCAB_ADV]) {
+    if (seen.has(w.pl)) continue;
+    seen.add(w.pl); out.push(w);
+  }
+  return out;
+})();
+const ALL_CONTENT = [...ALL_VOCAB, ...WORDS.filter(w => w.conj), ...CASES, ...TENSES];
 
 function inScope(item, level) { return RANK[item.lvl || 'A2'] <= RANK[level]; }
 // How many vocabulary words are unlocked at a given level (for menu labels)

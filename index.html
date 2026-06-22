@@ -2270,6 +2270,43 @@ function startGame() {
   loadRound();
 }
 
+// How a session is split across CEFR bands at each chosen level. The target
+// band dominates; lower bands form a light "spaced review" tail. This is what
+// actually makes B1/B2 *feel* like B1/B2 instead of mostly easy review.
+const LEVEL_WEIGHTS = {
+  A1: { A1:1.00 },
+  A2: { A2:0.70, A1:0.30 },
+  B1: { B1:0.60, A2:0.25, A1:0.15 },
+  B2: { B2:0.45, B1:0.30, A2:0.17, A1:0.08 },
+};
+
+// Pick ~`size` items from `pool`, honouring the level's band weights as far as
+// the available words allow, then topping up from anything left over.
+function weightedSample(pool, level, size) {
+  const want  = Math.min(size, pool.length);
+  const byLvl = { A1:[], A2:[], B1:[], B2:[] };
+  pool.forEach(p => byLvl[p.lvl || 'A2'].push(p));
+  Object.keys(byLvl).forEach(k => byLvl[k] = shuffle(byLvl[k]));
+
+  const weights = LEVEL_WEIGHTS[level] || { [level]: 1 };
+  const picked = [], used = new Set();
+  for (const band of Object.keys(weights)) {            // highest-priority band first
+    if (picked.length >= want) break;
+    const target = Math.round(weights[band] * want);
+    const arr = byLvl[band] || [];
+    for (let i = 0; i < arr.length && i < target && picked.length < want; i++) {
+      picked.push(arr[i]); used.add(arr[i]);
+    }
+  }
+  if (picked.length < want) {                           // top up to reach `want`
+    for (const p of shuffle(pool)) {
+      if (picked.length >= want) break;
+      if (!used.has(p)) { picked.push(p); used.add(p); }
+    }
+  }
+  return picked;
+}
+
 // Order a grammar deck so same-form families stay adjacent (one case/tense per
 // stretch), but shuffle which families appear first for variety.
 function orderGrammar(pool) {
@@ -2291,12 +2328,13 @@ function buildSession() {
     seen.add(k); return true;
   });
 
-  pool = deck.grammar ? orderGrammar(pool) : shuffle(pool);
-  if (pool.length > SESSION_SIZE) pool = pool.slice(0, SESSION_SIZE);
+  // Weight the session toward the chosen level's band, then order it.
+  let sample = weightedSample(pool, S.level, SESSION_SIZE);
+  sample = deck.grammar ? orderGrammar(sample) : shuffle(sample);
 
-  S.sessionTotal = pool.length;
+  S.sessionTotal = sample.length;
   S.rounds = [];
-  for (let i = 0; i < pool.length; i += ROUND_SIZE) S.rounds.push(pool.slice(i, i + ROUND_SIZE));
+  for (let i = 0; i < sample.length; i += ROUND_SIZE) S.rounds.push(sample.slice(i, i + ROUND_SIZE));
 
   S.retryQueue   = [];
   S.doneSet      = new Set();
